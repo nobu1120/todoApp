@@ -2446,3 +2446,10 @@ body:has(.app--calendar) {
 body:has(.selection-bar) {
   padding-bottom: 150px;
 }
+
+/* 選択モードに入っている間は、入口のボタンを塗って状態を示す。 */
+.icon-button.is-selected {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}

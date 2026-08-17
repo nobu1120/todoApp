@@ -67,7 +67,8 @@ export function FilterBar({
           aria-pressed={selecting}
           aria-label={selecting ? '選択をやめる' : 'まとめて選ぶ'}
         >
-          <Icon name={selecting ? 'close' : 'check-list'} />
+          {/* 選択中も同じアイコンのまま。× にすると、隣の検索クリアと見分けがつかない。 */}
+          <Icon name="check-list" />
         </button>
       </div>
 
