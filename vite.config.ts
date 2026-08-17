@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -7,4 +8,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/todoApp/',
   plugins: [react()],
+  // テストから CSS を文字列として読む（テーマ定義の抜けを検出するため）。
+  // 既定では CSS が空に置き換えられ、?raw でも空文字になる。
+  test: { css: true },
 })

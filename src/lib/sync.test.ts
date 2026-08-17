@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { Todo, TodoStore } from '../types'
+import type { Settings, Todo, TodoStore } from '../types'
 import { DEFAULT_SETTINGS, emptyStore } from './storage'
 import {
+  fromRemoteSettings,
   fromRemoteTodo,
   mergeStore,
+  toRemoteSettings,
   toRemoteTodo,
   type RemoteCategory,
+  type RemoteSettings,
   type RemoteTodo,
 } from './sync'
 
@@ -203,36 +206,126 @@ describe('mergeStore: カテゴリ', () => {
 })
 
 describe('mergeStore: 設定', () => {
-  it('サーバーに記録が無ければローカルを使う', () => {
-    const local = store({
-      settings: { ...DEFAULT_SETTINGS, notificationsEnabled: true, defaultNotifyTime: '07:30' },
-    })
-    expect(mergeStore(local, snapshot()).store.settings).toEqual({
-      ...DEFAULT_SETTINGS,
-      notificationsEnabled: true,
-      defaultNotifyTime: '07:30',
-    })
+  const remoteSettings = (patch: Partial<RemoteSettings> = {}): RemoteSettings => ({
+    user_id: USER,
+    notifications_enabled: true,
+    default_notify_time: '08:15:00',
+    time_zone: 'Asia/Tokyo',
+    theme: 'washi',
+    updated_at: '2026-08-05T00:00:00.000Z',
+    ...patch,
   })
 
-  it('サーバーの設定を取り込み、秒は落とす', () => {
-    const result = mergeStore(store(), {
+  const localSettings = (patch: Partial<Settings> = {}) => ({
+    ...DEFAULT_SETTINGS,
+    updatedAt: '2026-08-01T00:00:00.000Z',
+    ...patch,
+  })
+
+  it('サーバーに記録が無ければローカルを使う', () => {
+    const local = store({
+      settings: localSettings({ notificationsEnabled: true, defaultNotifyTime: '07:30' }),
+    })
+    expect(mergeStore(local, snapshot()).store.settings).toEqual(local.settings)
+  })
+
+  it('サーバーのほうが新しければ取り込み、秒は落とす', () => {
+    const result = mergeStore(store({ settings: localSettings() }), {
       todos: [],
       categories: [],
-      settings: {
-        user_id: USER,
-        notifications_enabled: true,
-        default_notify_time: '08:15:00',
-        time_zone: 'Asia/Tokyo',
-        theme: 'washi',
-        appearance: 'dark',
-        updated_at: '2026-08-05T00:00:00.000Z',
-      },
+      settings: remoteSettings(),
     })
-    expect(result.store.settings).toEqual({
+    expect(result.store.settings).toMatchObject({
       notificationsEnabled: true,
       defaultNotifyTime: '08:15',
       theme: 'washi',
-      appearance: 'dark',
+      updatedAt: '2026-08-05T00:00:00.000Z',
     })
+  })
+
+  it('ローカルのほうが新しければ、この端末の選択を残す', () => {
+    // 端末でテーマを変えた直後に取り込みが走っても、選択が巻き戻らないこと。
+    const local = store({
+      settings: localSettings({ theme: 'midnight', updatedAt: '2026-08-09T00:00:00.000Z' }),
+    })
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [],
+      settings: remoteSettings(),
+    })
+    expect(result.store.settings.theme).toBe('midnight')
+  })
+
+  it('同じ時刻ならローカルを残す', () => {
+    const at = '2026-08-05T00:00:00.000Z'
+    const local = store({ settings: localSettings({ theme: 'mono', updatedAt: at }) })
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [],
+      settings: remoteSettings({ updated_at: at }),
+    })
+    expect(result.store.settings.theme).toBe('mono')
+  })
+
+  it('明暗は同期しない（端末ごとの指定を残す）', () => {
+    const local = store({ settings: localSettings({ appearance: 'dark' }) })
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [],
+      settings: remoteSettings(),
+    })
+    expect(result.store.settings.appearance).toBe('dark')
+  })
+
+  it('サーバーに知らないテーマ名が入っていても、この端末の値を残す', () => {
+    const local = store({ settings: localSettings({ theme: 'glass' }) })
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [],
+      // 消したテーマ名や、まだこの版が知らないテーマ。
+      settings: remoteSettings({ theme: 'kanban' }),
+    })
+    expect(result.store.settings.theme).toBe('glass')
+  })
+
+  it('サーバーの通知時刻が壊れていても落ちない', () => {
+    const local = store({ settings: localSettings({ defaultNotifyTime: '06:45' }) })
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [],
+      settings: remoteSettings({ default_notify_time: null as unknown as string }),
+    })
+    expect(result.store.settings.defaultNotifyTime).toBe('06:45')
+  })
+})
+
+describe('toRemoteSettings', () => {
+  it('テーマと更新時刻を載せ、明暗は載せない', () => {
+    const row = toRemoteSettings(
+      { ...DEFAULT_SETTINGS, theme: 'seventies', appearance: 'dark', updatedAt: '2026-08-09T00:00:00.000Z' },
+      USER,
+      'Asia/Tokyo',
+    )
+    expect(row).toEqual({
+      user_id: USER,
+      notifications_enabled: false,
+      default_notify_time: '09:00',
+      time_zone: 'Asia/Tokyo',
+      theme: 'seventies',
+      updated_at: '2026-08-09T00:00:00.000Z',
+    })
+    expect(row).not.toHaveProperty('appearance')
+  })
+
+  it('往復しても設定が変わらない', () => {
+    const mine: Settings = {
+      ...DEFAULT_SETTINGS,
+      notificationsEnabled: true,
+      defaultNotifyTime: '07:30',
+      theme: 'botanical',
+      updatedAt: '2026-08-09T00:00:00.000Z',
+    }
+    const back = fromRemoteSettings(toRemoteSettings(mine, USER, 'Asia/Tokyo'), DEFAULT_SETTINGS)
+    expect(back).toEqual({ ...mine, appearance: DEFAULT_SETTINGS.appearance })
   })
 })

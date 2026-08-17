@@ -1,6 +1,8 @@
 import type { Category, Settings, Todo, TodoStore, Tombstone } from '../types'
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
-import { isAppearance, isThemeId } from './themes'
+import { CURRENT_VERSION } from './storage'
+import { isThemeId } from './themes'
+import { HM_RE } from './date'
 import type { CategoryColor } from '../types'
 
 /**
@@ -37,13 +39,16 @@ export type RemoteCategory = {
   deleted_at: string | null
 }
 
+/**
+ * サーバー側の設定行。明暗（appearance）は載せない。
+ * 端末ごとに違っていて自然なものなので、別の端末の指定で上書きされると困る。
+ */
 export type RemoteSettings = {
   user_id: string
   notifications_enabled: boolean
   default_notify_time: string
   time_zone: string
   theme: string | null
-  appearance: string | null
   updated_at: string
 }
 
@@ -88,7 +93,6 @@ export function toRemoteSettings(
   settings: Settings,
   userId: string,
   timeZone: string,
-  updatedAt: string,
 ): RemoteSettings {
   return {
     user_id: userId,
@@ -96,12 +100,29 @@ export function toRemoteSettings(
     default_notify_time: settings.defaultNotifyTime,
     time_zone: timeZone,
     theme: settings.theme,
-    appearance: settings.appearance,
-    updated_at: updatedAt,
+    // 「いつの設定か」をそのまま載せる。ここを送信時刻にすると、
+    // 取り込んだだけの値が常に最新に見えて、他の端末の変更を潰してしまう。
+    updated_at: settings.updatedAt,
   }
 }
 
 // --- サーバー → ローカル ------------------------------------------------------
+
+/**
+ * サーバー行から設定を作る。行の中身は信用せず、1 項目ずつ検証して
+ * 読めないものはこの端末の値を残す（同期が丸ごと失敗するのを避ける）。
+ */
+export function fromRemoteSettings(row: RemoteSettings, fallback: Settings): Settings {
+  const time = shortTime(row.default_notify_time)
+  return {
+    notificationsEnabled: row.notifications_enabled === true,
+    defaultNotifyTime: time !== null && HM_RE.test(time) ? time : fallback.defaultNotifyTime,
+    theme: isThemeId(row.theme) ? row.theme : fallback.theme,
+    // 明暗は同期しない。この端末の指定をそのまま残す。
+    appearance: fallback.appearance,
+    updatedAt: row.updated_at,
+  }
+}
 
 export function fromRemoteTodo(row: RemoteTodo): Todo {
   const subtasks = Array.isArray(row.subtasks)
@@ -244,19 +265,12 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
   }
 
   // ---- 設定 ----
-  // サーバー側に記録が無ければローカルを採る。あれば新しいほうを採る。
+  // 更新時刻の新しいほうを採る。同着とサーバー未記録はローカルを残す
+  // （この端末で今まさに変えた直後に取り込みが走ることがあるため）。
   const settings: Settings =
-    remote.settings === null
+    remote.settings === null || remote.settings.updated_at <= local.settings.updatedAt
       ? local.settings
-      : {
-          notificationsEnabled: remote.settings.notifications_enabled,
-          defaultNotifyTime: remote.settings.default_notify_time.slice(0, 5),
-          // 古いサーバー行にはテーマが無い。そのときはこの端末の設定を残す。
-          theme: isThemeId(remote.settings.theme) ? remote.settings.theme : local.settings.theme,
-          appearance: isAppearance(remote.settings.appearance)
-            ? remote.settings.appearance
-            : local.settings.appearance,
-        }
+      : fromRemoteSettings(remote.settings, local.settings)
 
   // 消えたカテゴリを指したままのタスクを未分類に落とす。
   const categoryIds = new Set(mergedCategories.keys())
@@ -268,7 +282,7 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
 
   return {
     store: {
-      schemaVersion: 4,
+      schemaVersion: CURRENT_VERSION,
       todos,
       categories: [...mergedCategories.values()],
       settings,

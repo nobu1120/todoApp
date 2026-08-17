@@ -59,6 +59,13 @@
   --display-fill-ink: var(--accent-ink);
   --display-fill-pad: 0 8px;
   --eyebrow-track: 0.18em;
+
+  /* ドロワーの下に敷く覆い。明地は黒、暗地はより濃い黒で沈める。 */
+  --scrim: rgb(17 17 17 / 0.45);
+}
+
+[data-appearance='dark'] {
+  --scrim: rgb(0 0 0 / 0.6);
 }
 
 /* ---------- 1. 白と蛍光 ---------- */
@@ -70,7 +77,7 @@
   --border: #e8e8e8;
   --border-strong: #111111;
   --text: #111111;
-  --text-muted: #8a8a8a;
+  --text-muted: #707070;
   --accent: #d9f24a;
   /* 蛍光の上に載せる文字。両モードとも黒で固定する。 */
   --accent-ink: #111111;
@@ -120,7 +127,7 @@
   --border: #e8dee4;
   --border-strong: #7d6bb5;
   --text: #443c42;
-  --text-muted: #8b7d85;
+  --text-muted: #73686e;
   --accent: #7d6bb5;
   --accent-ink: #ffffff;
   --alert-bg: #bc4460;
@@ -163,7 +170,7 @@
   --border: #ded6c3;
   --border-strong: #1e3a5f;
   --text: #23303f;
-  --text-muted: #8d8574;
+  --text-muted: #6d6659;
   --accent: #1e3a5f;
   --accent-ink: #f7f4ec;
   --alert-bg: #b7472a;
@@ -206,7 +213,7 @@
   --border: #dde3ec;
   --border-strong: #12776a;
   --text: #1a1f2b;
-  --text-muted: #6b7385;
+  --text-muted: #646b7c;
   --accent: #12776a;
   --accent-ink: #ffffff;
   --alert-bg: #c2416a;
@@ -223,7 +230,7 @@
   --border: #2a303c;
   --border-strong: #7fd4c1;
   --text: #e6e9f0;
-  --text-muted: #7d8598;
+  --text-muted: #8892a6;
   --accent: #7fd4c1;
   --accent-ink: #0f1117;
   --alert-bg: #f2a2b6;
@@ -248,7 +255,7 @@
   --border: #e6dfca;
   --border-strong: #8c8471;
   --text: #2b2a26;
-  --text-muted: #8a8270;
+  --text-muted: #746d5e;
   /* 蛍光ペン。文字は必ず黒のまま重ねる。 */
   --accent: #ffe680;
   --accent-ink: #2b2a26;
@@ -292,7 +299,7 @@
   --border: #e2e2e2;
   --border-strong: #1b1b1b;
   --text: #1b1b1b;
-  --text-muted: #7a7a7a;
+  --text-muted: #707070;
   --accent: #1b1b1b;
   --accent-ink: #ffffff;
   --alert-bg: #c02c2c;
@@ -329,7 +336,7 @@
   --row-line: transparent;
   --row-gap: 6px;
   --row-radius: 14px;
-  --row-shadow: 0 1px 2px rgb(58 51 80 / 0.08);
+  --row-shadow: 0 1px 2px rgb(58 51 80 / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.6);
   --list-rule: none;
 
   --bg: #e9e2f4;
@@ -337,10 +344,12 @@
   /* 面は「白の薄い膜」。下の景色が透けることで奥行きが出る。 */
   --surface: rgb(255 255 255 / 0.55);
   --surface-2: rgb(255 255 255 / 0.35);
-  --border: rgb(255 255 255 / 0.75);
+  /* 白の膜の上に白の枠を置くと輪郭が消える。縁は色を持たせ、
+     ガラスらしい光沢は面の内側のハイライト（--row-shadow）で出す。 */
+  --border: rgb(94 86 128 / 0.22);
   --border-strong: #5e5680;
   --text: #3a3350;
-  --text-muted: #6f6790;
+  --text-muted: #686187;
   --accent: #c2306a;
   --accent-ink: #ffffff;
   --alert-bg: #3a3350;
@@ -357,7 +366,7 @@
   --bg-image: linear-gradient(150deg, #2e1c39 0%, #1f2246 52%, #14303c 100%);
   --surface: rgb(255 255 255 / 0.08);
   --surface-2: rgb(255 255 255 / 0.05);
-  --border: rgb(255 255 255 / 0.16);
+  --border: rgb(255 255 255 / 0.22);
   --border-strong: #e6dff5;
   --text: #ece7f5;
   --text-muted: #a79fc0;
@@ -389,7 +398,7 @@
   --border: #dae4d8;
   --border-strong: #2f5d47;
   --text: #23372c;
-  --text-muted: #7c8f80;
+  --text-muted: #5f6e63;
   --accent: #2f5d47;
   --accent-ink: #f4f7f2;
   --alert-bg: #a8482f;
@@ -434,7 +443,7 @@
   --border: #e4d3b3;
   --border-strong: #b5512e;
   --text: #4a3520;
-  --text-muted: #a08150;
+  --text-muted: #78613c;
   --accent: #d99a2b;
   --accent-ink: #3d2b18;
   --alert-bg: #b5512e;
@@ -483,7 +492,7 @@
   --border: #eaeaef;
   --border-strong: #101014;
   --text: #101014;
-  --text-muted: #8a8a94;
+  --text-muted: #6e6e76;
   --accent: #101014;
   --accent-ink: #ffffff;
   --alert-bg: #101014;
@@ -500,7 +509,7 @@
   --border: #212127;
   --border-strong: #f2f2f5;
   --text: #f2f2f5;
-  --text-muted: #7c7c88;
+  --text-muted: #8b8b96;
   --accent: #f2f2f5;
   --accent-ink: #0a0a0c;
   --alert-bg: #f2f2f5;
@@ -1049,8 +1058,14 @@ body:has(.app--calendar) {
  * 週の高さを伸縮させ、余った高さは下の一覧に回す。
  */
 .calendar {
+  /*
+   * 高さの割り当ては 46%。ただし min-height を 0 にしてはいけない。
+   * 0 にすると、画面が短いときにマスが箱からはみ出し、下の見出しに重なる
+   * （実測: iPhone SE で 44〜77px ぶん被った）。min-content を下限にしておけば、
+   * 足りないぶんは下の一覧が引き受け、カレンダーは必ず全部見える。
+   */
   flex: 1 1 46%;
-  min-height: 0;
+  min-height: min-content;
   display: flex;
   flex-direction: column;
 }
@@ -1086,7 +1101,7 @@ body:has(.app--calendar) {
 .calendar__week {
   flex: 1;
   /* これ以上詰めると数字とマークが重なるので下限を切る */
-  min-height: 28px;
+  min-height: 26px;
 }
 
 .calendar__weekday {
@@ -1190,6 +1205,7 @@ body:has(.app--calendar) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* 縮むのはこちら側。中の一覧が自前でスクロールする。 */
   flex: 1 1 54%;
   min-height: 0;
 }
@@ -1213,6 +1229,7 @@ body:has(.app--calendar) {
 
 .day__badge {
   padding: 1px 8px;
+  border-radius: var(--radius-sm);
   font-size: 0.6875rem;
   background: var(--accent);
   color: var(--accent-ink);
@@ -1554,6 +1571,7 @@ body:has(.app--calendar) {
 
 .todo-item__due--today {
   padding: 1px 7px;
+  border-radius: var(--radius-sm);
   background: var(--today-bg);
   color: var(--today-fg);
   font-weight: 700;
@@ -1561,6 +1579,7 @@ body:has(.app--calendar) {
 
 .todo-item__due--overdue {
   padding: 1px 7px;
+  border-radius: var(--radius-sm);
   background: var(--alert-bg);
   color: var(--alert-fg);
   font-weight: 700;
@@ -1690,7 +1709,7 @@ body:has(.app--calendar) {
 .drawer__backdrop {
   position: absolute;
   inset: 0;
-  background: rgb(17 17 17 / 0.45);
+  background: var(--scrim);
 }
 
 .drawer__panel {
@@ -1699,7 +1718,11 @@ body:has(.app--calendar) {
   width: min(440px, 100%);
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  /* 地の模様もテーマの一部。ここで --bg だけを敷くと、罫線やグラデが
+     ドロワーの中だけ消えて、別テーマの画面のように見えてしまう。 */
+  background-color: var(--bg);
+  background-image: var(--bg-image);
+  background-attachment: var(--bg-attach);
   border-left: 1px solid var(--border-strong);
 }
 
@@ -1732,7 +1755,7 @@ body:has(.app--calendar) {
   .drawer__panel {
     inset: auto 0 0 0;
     width: 100%;
-    height: 92vh;
+    height: 92dvh;
     border-left: none;
     border-top: 2px solid var(--border-strong);
   }
@@ -1861,6 +1884,14 @@ body:has(.app--calendar) {
 .emoji-picker__item.is-selected {
   background: var(--accent);
   border-color: var(--accent);
+  /* 差し色は面。その上の文字は必ず accent-ink にする（--none の muted に負けないよう指定する）。 */
+  color: var(--accent-ink);
+}
+
+.emoji-picker__item--none.is-selected {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .emoji-picker__item--none {
@@ -1965,7 +1996,8 @@ body:has(.app--calendar) {
   border-radius: 0;
   background: transparent;
   padding: 8px 18px;
-  min-height: 40px;
+  /* 指で押す最小寸法。枠線ぶんを含めて 44px に届かせる。 */
+  min-height: 42px;
   color: var(--text-muted);
 }
 
@@ -1985,8 +2017,9 @@ body:has(.app--calendar) {
 
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: 10px;
+  /* 10 個を一度に見比べたいので、狭い画面では 3 列に詰める。 */
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
   margin-top: 14px;
 }
 
@@ -1995,7 +2028,7 @@ body:has(.app--calendar) {
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  padding: 7px;
+  padding: 6px;
   text-align: left;
   border-radius: var(--radius);
 }
@@ -2009,6 +2042,8 @@ body:has(.app--calendar) {
   font-size: 0.8125rem;
   font-weight: 700;
   margin-top: 6px;
+  /* 長音符（ー）が行頭に来るのを防ぐ。「ノートとマーカ／ー」になっていた。 */
+  line-break: strict;
 }
 
 .theme-card__note {
@@ -2023,11 +2058,13 @@ body:has(.app--calendar) {
 .theme-preview {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 4px;
-  padding: 8px;
-  height: 66px;
+  padding: 7px;
+  height: 62px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  /* 角の丸みもテーマの一部なので、見本にもそのまま出す。 */
+  border-radius: max(var(--radius), 6px);
   overflow: hidden;
   background-color: var(--bg);
   background-image: var(--bg-image);
@@ -2036,24 +2073,27 @@ body:has(.app--calendar) {
 
 .theme-preview__head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  align-items: baseline;
+  gap: 3px;
 }
 
-.theme-preview__aa {
+/* 実物と同じ「残り N 件」。テーマの書体と見出しの大きさがここで分かる。 */
+.theme-preview__count {
   font-family: var(--font-display);
-  font-size: 0.75rem;
+  font-size: 0.5rem;
   font-weight: var(--display-weight);
+  letter-spacing: var(--display-track);
   line-height: 1;
+  white-space: nowrap;
 }
 
-.theme-preview__chip {
-  width: 22px;
-  height: 9px;
-  flex: none;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
+.theme-preview__count b {
+  display: inline-block;
+  font-size: calc(var(--display-size) * 0.5);
+  padding: var(--display-fill-pad);
+  background: var(--display-fill);
+  color: var(--display-fill-ink);
+  line-height: 1.1;
 }
 
 .theme-preview__row {
@@ -2064,6 +2104,26 @@ body:has(.app--calendar) {
   background: var(--row-bg);
   border-radius: var(--row-radius);
   border-bottom: 1px solid var(--row-line);
+  /* ガラスは「半透明の面」が主役。見本でも透けさせないと実物と食い違う。 */
+  backdrop-filter: var(--blur);
+}
+
+/* 期限切れ・今日のバッジ。実際の画面で一番目に入る差し色なので、選ぶ前に見せる。 */
+.theme-preview__badge {
+  width: 12px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--radius-sm);
+}
+
+.theme-preview__badge--alert {
+  background: var(--alert-bg);
+}
+
+.theme-preview__badge--today {
+  background: var(--today-bg);
+  /* 塗らないテーマ（白と蛍光のダーク）は文字色で示すので、輪郭で見せる。 */
+  box-shadow: inset 0 0 0 1.5px var(--today-fg);
 }
 
 .theme-preview__box {
@@ -2171,8 +2231,11 @@ body:has(.app--calendar) {
   gap: 12px;
   max-width: calc(100vw - 32px);
   padding: 8px 8px 8px 18px;
-  background: var(--border-strong);
+  /* border-strong は「枠線として目立つ色」で、面として塗ると文字が浮かないテーマがある。
+     どのテーマでも 7:1 を保証している text / bg の対を反転して使う。 */
+  background: var(--text);
   color: var(--bg);
+  border-radius: var(--radius);
 }
 
 .undo__text {
@@ -2215,5 +2278,20 @@ body:has(.app--calendar) {
   *, *::before, *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/*
+ * 背の低い画面。テーマが指定した大きな見出し（タイポグラフィの 2.6rem）は、
+ * ここでは 2 行に折り返してカレンダーを押し出すので上限を掛ける。
+ */
+@media (max-height: 700px) {
+  :root,
+  [data-theme] {
+    --display-size: 1.5rem;
+  }
+
+  body:has(.app--calendar) {
+    padding-top: 14px;
   }
 }

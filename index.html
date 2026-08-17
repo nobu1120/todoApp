@@ -15,6 +15,33 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Todo" />
     <title>Todo</title>
+    <!--
+      色は data-theme に紐づくので、この属性が付くまで地色が決まらない。
+      React のマウントを待つと、最初の一瞬だけ白地・黒文字で描かれてしまう。
+      保存済みの設定を先に読んで、描画前に属性を当てておく。
+      壊れた値・古い版のデータでも落ちないよう、全体を try で包む。
+    -->
+    <script>
+      (function () {
+        var themes = ['fluoro','latte','washi','midnight','note','mono','glass','botanical','seventies','type']
+        var theme = 'fluoro'
+        var appearance = 'auto'
+        try {
+          var saved = JSON.parse(localStorage.getItem('todoApp.store') || '{}').settings || {}
+          if (themes.indexOf(saved.theme) !== -1) theme = saved.theme
+          if (['auto','light','dark'].indexOf(saved.appearance) !== -1) appearance = saved.appearance
+        } catch (e) {}
+        var dark =
+          appearance === 'dark' ||
+          (appearance === 'auto' &&
+            typeof matchMedia === 'function' &&
+            matchMedia('(prefers-color-scheme: dark)').matches)
+        var root = document.documentElement
+        root.dataset.theme = theme
+        root.dataset.appearance = dark ? 'dark' : 'light'
+        root.style.colorScheme = dark ? 'dark' : 'light'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

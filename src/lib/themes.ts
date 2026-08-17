@@ -6,38 +6,14 @@
  * こうしておくと、テーマを増やすときに触るのは CSS とこの配列だけで済む。
  */
 
-export const THEME_IDS = [
-  'fluoro',
-  'latte',
-  'washi',
-  'midnight',
-  'note',
-  'mono',
-  'glass',
-  'botanical',
-  'seventies',
-  'type',
-] as const
-
-export type ThemeId = (typeof THEME_IDS)[number]
-
-/** 'auto' は端末（OS）の設定に従う。 */
-export type Appearance = 'auto' | 'light' | 'dark'
-
-export const APPEARANCES: { id: Appearance; label: string }[] = [
-  { id: 'auto', label: '自動' },
-  { id: 'light', label: 'ライト' },
-  { id: 'dark', label: 'ダーク' },
-]
-
 export type Theme = {
-  id: ThemeId
+  id: string
   name: string
   /** 一覧で名前の下に出す一言。 */
   note: string
 }
 
-export const THEMES: Theme[] = [
+export const THEMES = [
   { id: 'fluoro', name: '白と蛍光', note: '白地に蛍光1色' },
   { id: 'latte', name: 'ミルクラテ', note: 'やわらかい丸み' },
   { id: 'washi', name: '和紙と藍', note: '生成りと藍' },
@@ -48,6 +24,20 @@ export const THEMES: Theme[] = [
   { id: 'botanical', name: 'ボタニカル', note: '深緑と明朝' },
   { id: 'seventies', name: 'セブンティーズ', note: '琥珀と丸み' },
   { id: 'type', name: 'タイポグラフィ', note: '大きな数字' },
+] as const satisfies readonly Theme[]
+
+/** テーマの一覧が唯一の出どころ。id はそこから導く。 */
+export type ThemeId = (typeof THEMES)[number]['id']
+
+export const THEME_IDS: readonly ThemeId[] = THEMES.map((t) => t.id)
+
+/** 'auto' は端末（OS）の設定に従う。 */
+export type Appearance = 'auto' | 'light' | 'dark'
+
+export const APPEARANCES: { id: Appearance; label: string }[] = [
+  { id: 'auto', label: '自動' },
+  { id: 'light', label: 'ライト' },
+  { id: 'dark', label: 'ダーク' },
 ]
 
 export const DEFAULT_THEME: ThemeId = 'fluoro'

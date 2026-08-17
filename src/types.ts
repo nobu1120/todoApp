@@ -55,8 +55,13 @@ export type Settings = {
   defaultNotifyTime: string
   /** 配色と書体の組み合わせ。値の定義は lib/themes.ts。 */
   theme: ThemeId
-  /** 明暗。'auto' は端末の設定に従う。 */
+  /**
+   * 明暗。'auto' は端末の設定に従う。
+   * これは端末ごとの都合なので、同期はしない（別の端末の指定に引きずられないため）。
+   */
   appearance: Appearance
+  /** 設定を最後に変えた時刻（ISO 8601）。同期時にどちらが新しいかの判定に使う。 */
+  updatedAt: string
 }
 
 /**

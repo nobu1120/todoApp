@@ -9,6 +9,8 @@ import {
   resolveAppearance,
 } from './themes'
 import { migrate } from './storage'
+// CSS を文字列として読む（vite の ?raw）。node の fs に頼らずに済む。
+import css from '../index.css?raw'
 
 describe('テーマの一覧', () => {
   it('10 種類ある', () => {
@@ -80,5 +82,55 @@ describe('保存データからの復元', () => {
     const store = migrate({ todos: [], settings: { theme: 'kanban', appearance: 'sepia' } })
     expect(store.settings.theme).toBe(DEFAULT_THEME)
     expect(store.settings.appearance).toBe(DEFAULT_APPEARANCE)
+  })
+})
+
+/**
+ * themes.ts に id を足して CSS を書き忘れると、そのテーマを選んだ瞬間に
+ * 全トークンが未定義になり、画面が素の白黒になる。isThemeId は通ってしまうので
+ * 既定へのフォールバックも効かない。ここで機械的に対応を守る。
+ */
+describe('CSS との対応', () => {
+  /** そのセレクタのブロックの中身を取り出す。 */
+  const blockFor = (selector: string): string | null => {
+    const at = css.indexOf(selector)
+    if (at === -1) return null
+    const open = css.indexOf('{', at)
+    const close = css.indexOf('}', open)
+    return open === -1 || close === -1 ? null : css.slice(open + 1, close)
+  }
+
+  const REQUIRED = [
+    '--bg',
+    '--surface',
+    '--surface-2',
+    '--border',
+    '--border-strong',
+    '--text',
+    '--text-muted',
+    '--accent',
+    '--accent-ink',
+    '--alert-bg',
+    '--alert-fg',
+    '--today-bg',
+    '--today-fg',
+  ]
+
+  it.each(THEME_IDS)('%s にライトの定義がある', (id) => {
+    const block = blockFor(`[data-theme='${id}'] {`)
+    expect(block).not.toBeNull()
+    for (const token of REQUIRED) expect(block).toContain(`${token}:`)
+  })
+
+  it.each(THEME_IDS)('%s にダークの定義がある', (id) => {
+    // 見本カード用のセレクタと 2 本立てで書いてあるので、後ろ側を目印にする。
+    const block = blockFor(`[data-appearance='dark'] [data-theme='${id}'] {`)
+    expect(block).not.toBeNull()
+    for (const token of REQUIRED) expect(block).toContain(`${token}:`)
+  })
+
+  it('CSS に、一覧に無いテーマの定義が残っていない', () => {
+    const defined = [...css.matchAll(/\[data-theme='([a-z-]+)'\]/g)].map((m) => m[1])
+    for (const id of new Set(defined)) expect(THEME_IDS).toContain(id)
   })
 })

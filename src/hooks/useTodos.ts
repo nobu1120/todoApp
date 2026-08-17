@@ -53,7 +53,8 @@ export function useTodos() {
         dispatch({ type: 'category:update', id, patch }),
       removeCategory: (id: string) => dispatch({ type: 'category:remove', id, now: now() }),
 
-      updateSettings: (patch: Partial<Settings>) => dispatch({ type: 'settings:update', patch }),
+      updateSettings: (patch: Partial<Settings>) =>
+        dispatch({ type: 'settings:update', patch, now: now() }),
 
       /** 同期で作った状態をそのまま採用する。 */
       replaceStore: (next: TodoStore) => dispatch({ type: 'sync:replace', store: next }),

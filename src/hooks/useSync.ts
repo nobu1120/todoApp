@@ -95,7 +95,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
 
       const { error: settingsError } = await supabase
         .from('todo_settings')
-        .upsert(toRemoteSettings(result.store.settings, userId, localTimeZone(), now))
+        .upsert(toRemoteSettings(result.store.settings, userId, localTimeZone()))
       if (settingsError) throw settingsError
 
       // 取り込んだぶんを送り返さないよう、先に水位を上げてから反映する。
@@ -116,7 +116,9 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     const since = pushedUpTo.current
     const todos = local.todos.filter((t) => t.updatedAt > since)
     const graves = local.tombstones.filter((t) => t.deletedAt > since)
-    if (todos.length === 0 && graves.length === 0) return
+    // 設定もここで送る。送らないと、次の全同期でサーバーの値に巻き戻ってしまう。
+    const settingsChanged = local.settings.updatedAt > since
+    if (todos.length === 0 && graves.length === 0 && !settingsChanged) return
 
     setStatus('syncing')
     try {
@@ -141,6 +143,13 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
           .update({ deleted_at: now, updated_at: now })
           .in('id', deadCategories)
       }
+      if (settingsChanged) {
+        const { error: e } = await supabase
+          .from('todo_settings')
+          .upsert(toRemoteSettings(local.settings, userId, localTimeZone()))
+        if (e) throw e
+      }
+
       pushedUpTo.current = now
       setLastSyncedAt(new Date().toISOString())
       setStatus('synced')

@@ -294,12 +294,25 @@ describe('storeReducer: カテゴリと設定', () => {
     expect(next.todos[1].categoryId).toBe('cat-home')
   })
 
-  it('設定を部分更新する', () => {
+  it('設定を部分更新し、更新時刻を進める', () => {
+    const now = '2026-08-09T10:00:00.000Z'
     const next = storeReducer(emptyStore, {
       type: 'settings:update',
       patch: { notificationsEnabled: true },
+      now,
     })
-    expect(next.settings).toEqual({ ...DEFAULT_SETTINGS, notificationsEnabled: true })
+    expect(next.settings).toEqual({
+      ...DEFAULT_SETTINGS,
+      notificationsEnabled: true,
+      updatedAt: now,
+    })
+  })
+
+  it('テーマを変えても更新時刻が進む（同期でどちらが新しいかの判断に使う）', () => {
+    const now = '2026-08-09T11:00:00.000Z'
+    const next = storeReducer(emptyStore, { type: 'settings:update', patch: { theme: 'washi' }, now })
+    expect(next.settings.theme).toBe('washi')
+    expect(next.settings.updatedAt).toBe(now)
   })
 })
 
@@ -411,7 +424,7 @@ describe('countActive', () => {
 })
 
 describe('migrate', () => {
-  it('v1 のデータを v3 に引き上げる（既定カテゴリと設定を新設）', () => {
+  it('v1 のデータを v4 に引き上げる（既定カテゴリと設定を新設）', () => {
     const v1 = {
       schemaVersion: 1,
       todos: [

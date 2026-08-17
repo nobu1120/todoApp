@@ -69,7 +69,7 @@ export type Action =
   | { type: 'category:add'; category: Category }
   | { type: 'category:update'; id: string; patch: Partial<Omit<Category, 'id'>> }
   | { type: 'category:remove'; id: string; now: string }
-  | { type: 'settings:update'; patch: Partial<Settings> }
+  | { type: 'settings:update'; patch: Partial<Settings>; now: string }
 
 /** 指定 id の Todo だけを差し替える。該当しない要素は同一参照のまま残す。 */
 function mapTodo(store: TodoStore, id: string, fn: (todo: Todo) => Todo): TodoStore {
@@ -213,7 +213,11 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
       }
 
     case 'settings:update':
-      return { ...store, settings: { ...store.settings, ...action.patch } }
+      // 更新時刻を必ず進める。同期時に「どちらが新しいか」の判断材料がこれしかない。
+      return {
+        ...store,
+        settings: { ...store.settings, ...action.patch, updatedAt: action.now },
+      }
   }
 }
 

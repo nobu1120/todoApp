@@ -15,8 +15,15 @@ function useSystemDark(): boolean {
     const onChange = () => setDark(mq.matches)
     // 初回に取り直す。マウントまでに OS 側が変わっている場合がある。
     onChange()
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
+
+    // addEventListener は Safari 14 から。それ以前は addListener しか無く、
+    // 素で呼ぶと TypeError でアプリ全体が落ちる。
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange)
+      return () => mq.removeEventListener('change', onChange)
+    }
+    mq.addListener(onChange)
+    return () => mq.removeListener(onChange)
   }, [])
 
   return dark

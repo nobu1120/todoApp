@@ -13,7 +13,7 @@ import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 const STORAGE_KEY = 'todoApp.store'
-const CURRENT_VERSION = 4
+export const CURRENT_VERSION = 4
 
 /** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   // 既定は端末の設定に従う。端末ごとに明暗が違っていて自然なため。
   appearance: DEFAULT_APPEARANCE,
+  // 一度も触っていない設定は、同期時にサーバー側へ譲る。
+  updatedAt: new Date(0).toISOString(),
 }
 
 export const emptyStore: TodoStore = {
@@ -103,7 +105,10 @@ function parseCategory(value: unknown): Category | null {
   }
 }
 
-function parseSettings(value: unknown): Settings {
+const isISOTime = (v: unknown): v is string =>
+  typeof v === 'string' && !Number.isNaN(Date.parse(v))
+
+export function parseSettings(value: unknown): Settings {
   if (typeof value !== 'object' || value === null) return DEFAULT_SETTINGS
   const raw = value as Record<string, unknown>
   return {
@@ -115,6 +120,7 @@ function parseSettings(value: unknown): Settings {
     // 知らないテーマ名（消したテーマ・古い版）は既定に落とす。
     theme: isThemeId(raw.theme) ? raw.theme : DEFAULT_THEME,
     appearance: isAppearance(raw.appearance) ? raw.appearance : DEFAULT_APPEARANCE,
+    updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : DEFAULT_SETTINGS.updatedAt,
   }
 }
 
