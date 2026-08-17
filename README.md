@@ -38,19 +38,18 @@ npm run preview  # 本番ビルドの確認 (http://localhost:4173/todoApp/)
 公開先は `https://nobu1120.github.io/todoApp/`。
 リポジトリ名を変える場合は `vite.config.ts` の `base` も合わせて変更すること。
 
-### 初回だけ必要な手順
+### 準備済みのもの
 
-4 ステップとも **スマホのブラウザ（github.com）だけで完結する**。PC もターミナルも要らない。
-※ GitHub の**モバイルアプリではファイルを作成・移動できない**ので、ブラウザで開くこと。
+- **`gh-pages` ブランチ** — `npm run build` の出力を配置済み。Pages を有効にすればそのまま配信される。
+  `.nojekyll` 入りで、GitHub Pages と同じパス構造（`/todoApp/`）での動作を確認済み。
+- **`main` ブランチ** — 作成済み。
 
-**1. デフォルトブランチを `main` にする**
+### 残りの手順
 
-このリポジトリにはまだ `main` が無く、作業ブランチがデフォルトになっている。
-ワークフローは `main` への push で起動するため、先に直す。
+以下は**リポジトリの設定**で、API から変更する手段が無いためオーナーが操作する必要がある。
+どちらも**スマホのブラウザ（github.com）だけで完結する**。
 
-Settings → General → Default branch → ✏️ → `main` にリネーム。
-
-**2. リポジトリを public にする（Free プランの場合）**
+**1. リポジトリを public にする（Free プランの場合）**
 
 GitHub Pages を **private リポジトリから公開するには GitHub Pro 以上**が必要。
 Free プランなら Settings → General → Danger Zone → Change visibility → Public。
@@ -59,29 +58,49 @@ Free プランなら Settings → General → Danger Zone → Change visibility 
 > リポジトリにもサーバーにも一切送られないため、ページを見られてもタスクの中身は漏れない。
 > 逆に、別の端末やブラウザからは別のデータになる（同期はしない）。
 
-Pro を使っているか、公開したくない場合はこの手順を飛ばしてよい。
+Pro を使っている場合はこの手順は不要。
 
-**3. ワークフローを配置する**
+**2. Pages を有効にする**
 
-デプロイ用ワークフローは [`docs/github-pages-deploy.yml`](docs/github-pages-deploy.yml) に置いてある。
-Claude が使うトークンに `workflow` スコープがなく、`.github/workflows/` へは push も API 経由の作成もできなかったため。
+Settings → Pages → Build and deployment で
 
-スマホからは**ファイルを移動するのが一番早い**（中身をコピペしなくて済む）:
+- Source: **Deploy from a branch**
+- Branch: **`gh-pages`** / **`/ (root)`**
 
-`docs/github-pages-deploy.yml` を開く → ✏️ Edit → **ファイル名の欄**を
-`.github/workflows/deploy.yml` に書き換える → Commit changes
+を選んで Save。数十秒で `https://nobu1120.github.io/todoApp/` が開くようになる。
 
-ターミナルからやる場合:
+### サイトを更新するとき
+
+`gh-pages` はビルド成果物なので、ソースを変えたら作り直して push する。
 
 ```bash
-git mv docs/github-pages-deploy.yml .github/workflows/deploy.yml
-git commit -m "GitHub Pages へのデプロイワークフローを追加"
-git push
+npm run build
+touch dist/.nojekyll
+
+git worktree add /tmp/ghp gh-pages
+rm -rf /tmp/ghp/assets /tmp/ghp/index.html
+cp -r dist/. /tmp/ghp/
+git -C /tmp/ghp add -A
+git -C /tmp/ghp commit -m "サイトを更新"
+git -C /tmp/ghp push
+git worktree remove /tmp/ghp
 ```
 
-**4. Pages を有効にする**
+自動化してしまうほうが結局は楽なので、頻繁に更新するようになったら次節を検討する。
 
-Settings → Pages → Build and deployment → Source を **GitHub Actions** に変更する。
+### 自動デプロイにしたい場合（任意）
+
+毎回手でビルドするのが面倒になったら、GitHub Actions に切り替えられる。
+ワークフローは [`docs/github-pages-deploy.yml`](docs/github-pages-deploy.yml) に用意してある
+（Claude のトークンに `workflow` スコープが無く、`.github/workflows/` へは push も API 経由の作成もできなかったため、ここに置いてある）。
+
+1. `docs/github-pages-deploy.yml` を開く → ✏️ Edit → **ファイル名の欄**を
+   `.github/workflows/deploy.yml` に書き換える → Commit
+   （スマホならコピペ不要のこの方法が早い。※ GitHub の**モバイルアプリでは不可**、ブラウザで開くこと）
+2. Settings → General → Default branch を **`main`** に変更
+3. Settings → Pages → Source を **GitHub Actions** に変更
+
+以降は `main` に push するたび、テスト → ビルド → デプロイが自動で走る。
 
 以降は `main` に push するたび、テスト → ビルド → デプロイが自動で走る。
 Actions タブから手動実行（Run workflow）もできる。
