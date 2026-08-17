@@ -35,14 +35,30 @@ npm run preview  # 本番ビルドの確認 (http://localhost:4173/todoApp/)
 
 ## 公開（GitHub Pages）
 
-`main` に push すると GitHub Actions がテスト → ビルド → デプロイを実行する
-（[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)）。
-
-**初回だけリポジトリ側の設定が必要:**
-Settings → Pages → Build and deployment → Source を **GitHub Actions** に変更する。
-
 公開先は `https://nobu1120.github.io/todoApp/`。
 リポジトリ名を変える場合は `vite.config.ts` の `base` も合わせて変更すること。
+
+### 初回だけ必要な手順
+
+**1. ワークフローを配置する**
+
+デプロイ用ワークフローは [`docs/github-pages-deploy.yml`](docs/github-pages-deploy.yml) に置いてある。
+Claude が使うトークンに `workflow` スコープがなく `.github/workflows/` を push できないため、
+手元で移動してほしい。
+
+```bash
+mkdir -p .github/workflows
+cp docs/github-pages-deploy.yml .github/workflows/deploy.yml
+git add .github/workflows/deploy.yml
+git commit -m "GitHub Pages へのデプロイワークフローを追加"
+git push
+```
+
+**2. Pages を有効にする**
+
+Settings → Pages → Build and deployment → Source を **GitHub Actions** に変更する。
+
+以降は `main` に push するたび、テスト → ビルド → デプロイが自動で走る。
 
 > データは端末のブラウザ内にしか保存されないため、ページを公開しても他人からタスクは見えない。
 > 逆に、別の端末やブラウザからは別のデータになる（同期はしない）。
