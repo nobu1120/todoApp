@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { Settings, Todo, TodoStore } from '../types'
 import { diffInDays, formatDue, formatDueLabel, isOverdue, isToday, toHM, toISODate } from './date'
 import {
+  archiveOld,
   countActive,
   createSubtask,
   createTodo,
   dueMoment,
   filterTodos,
   needsAttention,
+  nextDueDate,
   progressOf,
   sortTodos,
   storeReducer,
@@ -34,6 +36,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     subtasks: [],
     notifiedAt: null,
     priority: 'normal',
+    repeat: 'none',
     ...overrides,
   }
 }
@@ -105,6 +108,7 @@ describe('createTodo', () => {
       subtasks: [],
       notifiedAt: null,
       priority: 'normal',
+    repeat: 'none',
     })
   })
 
@@ -356,7 +360,7 @@ describe('filterTodos', () => {
   const all = [active, dueToday, overdue, future, finished]
 
   const ids = (status: Parameters<typeof filterTodos>[1]['status'], categoryId: string | null = null) =>
-    filterTodos(all, { status, categoryId }, TODAY).map((t) => t.id)
+    filterTodos(all, { status, categoryId, query: '' }, TODAY).map((t) => t.id)
 
   it('状態で絞る', () => {
     expect(ids('all')).toEqual(['active', 'today', 'overdue', 'future', 'done'])
@@ -424,7 +428,7 @@ describe('countActive', () => {
 })
 
 describe('migrate', () => {
-  it('v1 のデータを v4 に引き上げる（既定カテゴリと設定を新設）', () => {
+  it('v1 のデータを v5 に引き上げる（既定カテゴリと設定を新設）', () => {
     const v1 = {
       schemaVersion: 1,
       todos: [
@@ -437,13 +441,14 @@ describe('migrate', () => {
           updatedAt: '2026-08-01T00:00:00.000Z',
           completedAt: null,
           priority: 'normal',
+    repeat: 'none',
           tags: [],
           notes: '前から書いてあったメモ',
         },
       ],
     }
     const s = migrate(v1)
-    expect(s.schemaVersion).toBe(4)
+    expect(s.schemaVersion).toBe(5)
     expect(s.tombstones).toEqual([])
     expect(s.categories).toEqual(DEFAULT_CATEGORIES)
     expect(s.settings).toEqual(DEFAULT_SETTINGS)
@@ -487,6 +492,7 @@ describe('migrate', () => {
       icon: '',
       subtasks: [],
       priority: 'normal',
+    repeat: 'none',
     })
   })
 
@@ -531,7 +537,7 @@ describe('migrate', () => {
       settings: { notificationsEnabled: true, defaultNotifyTime: '08:00' },
     }
     const s = migrate(v2)
-    expect(s.schemaVersion).toBe(4)
+    expect(s.schemaVersion).toBe(5)
     expect(s.tombstones).toEqual([])
     expect(s.todos[0]).toMatchObject({ id: 'a', icon: '📄' })
     expect(s.categories).toEqual([{ id: 'c1', name: '仕事', color: 'blue' }])
@@ -560,5 +566,218 @@ describe('migrate', () => {
     expect(migrate(null)).toEqual(emptyStore)
     expect(migrate('文字列')).toEqual(emptyStore)
     expect(migrate({ todos: '配列じゃない' })).toEqual(emptyStore)
+  })
+})
+
+describe('繰り返し', () => {
+  const base = todo({ id: 'r', dueDate: '2026-08-17', repeat: 'weekly' })
+
+  it('毎日 / 毎週 / 毎月で次の期限を出す', () => {
+    expect(nextDueDate('2026-08-17', 'daily', '2026-08-17')).toBe('2026-08-18')
+    expect(nextDueDate('2026-08-17', 'weekly', '2026-08-17')).toBe('2026-08-24')
+    expect(nextDueDate('2026-08-17', 'monthly', '2026-08-17')).toBe('2026-09-17')
+  })
+
+  it('月末は翌月の末日に丸める（2/31 を作らない）', () => {
+    expect(nextDueDate('2026-01-31', 'monthly', '2026-01-31')).toBe('2026-02-28')
+  })
+
+  it('溜めてから消化しても、次回が過去日にならない', () => {
+    // 3 週間ぶん放置してから完了にした場合。
+    expect(nextDueDate('2026-08-03', 'weekly', '2026-08-20')).toBe('2026-08-24')
+  })
+
+  it('期限が無い、または繰り返さないなら次は無い', () => {
+    expect(nextDueDate(null, 'weekly', '2026-08-17')).toBeNull()
+    expect(nextDueDate('2026-08-17', 'none', '2026-08-17')).toBeNull()
+  })
+
+  it('完了にすると次回ぶんが増える', () => {
+    const store = { ...emptyStore, todos: [base] }
+    const next = storeReducer(store, {
+      type: 'toggle',
+      id: 'r',
+      now: '2026-08-17T10:00:00.000Z',
+      nextId: 'r2',
+      today: '2026-08-17',
+    })
+    expect(next.todos).toHaveLength(2)
+    expect(next.todos[0].done).toBe(true)
+    expect(next.todos[1]).toMatchObject({
+      id: 'r2',
+      done: false,
+      dueDate: '2026-08-24',
+      repeat: 'weekly',
+      notifiedAt: null,
+    })
+  })
+
+  it('未完了に戻すときは増えない', () => {
+    const store = { ...emptyStore, todos: [{ ...base, done: true }] }
+    const next = storeReducer(store, {
+      type: 'toggle',
+      id: 'r',
+      now: '2026-08-17T10:00:00.000Z',
+      nextId: 'r2',
+      today: '2026-08-17',
+    })
+    expect(next.todos).toHaveLength(1)
+  })
+
+  it('次回ぶんはサブタスクのチェックを戻して引き継ぐ', () => {
+    const withSubs = {
+      ...base,
+      subtasks: [{ id: 's1', title: '下書き', done: true }],
+    }
+    const next = storeReducer(
+      { ...emptyStore, todos: [withSubs] },
+      { type: 'toggle', id: 'r', now: '2026-08-17T10:00:00.000Z', nextId: 'r2', today: '2026-08-17' },
+    )
+    expect(next.todos[1].subtasks).toEqual([{ id: 's1', title: '下書き', done: false }])
+  })
+})
+
+describe('検索', () => {
+  const items = [
+    todo({ id: 'a', title: '請求書を出す' }),
+    todo({ id: 'b', title: 'Meeting', notes: '会議室Aを予約する' }),
+    todo({ id: 'c', title: 'ゴミ出し' }),
+  ]
+  const found = (query: string) =>
+    filterTodos(items, { status: 'all', categoryId: null, query }, TODAY).map((t) => t.id)
+
+  it('タイトルの部分一致で絞る', () => {
+    expect(found('請求')).toEqual(['a'])
+  })
+
+  it('メモも探す', () => {
+    expect(found('会議室')).toEqual(['b'])
+  })
+
+  it('大文字小文字を区別しない', () => {
+    expect(found('meeting')).toEqual(['b'])
+    expect(found('MEETING')).toEqual(['b'])
+  })
+
+  it('全角と半角の揺れを吸収する', () => {
+    expect(found('ｍｅｅｔｉｎｇ')).toEqual(['b'])
+  })
+
+  it('空なら絞らない', () => {
+    expect(found('')).toEqual(['a', 'b', 'c'])
+    expect(found('   ')).toEqual(['a', 'b', 'c'])
+  })
+
+  it('一致しなければ空', () => {
+    expect(found('存在しない')).toEqual([])
+  })
+})
+
+describe('並び順の切り替え', () => {
+  const high = todo({ id: 'high', dueDate: '2026-08-20', priority: 'high' })
+  const low = todo({ id: 'low', dueDate: '2026-08-18', priority: 'low' })
+  const normal = todo({ id: 'normal', dueDate: '2026-08-19', priority: 'normal' })
+
+  it('期限順は期限が近い順', () => {
+    expect(sortTodos([high, low, normal], 'due').map((t) => t.id)).toEqual(['low', 'normal', 'high'])
+  })
+
+  it('優先度順は高いものが上', () => {
+    expect(sortTodos([low, normal, high], 'priority').map((t) => t.id)).toEqual([
+      'high',
+      'normal',
+      'low',
+    ])
+  })
+
+  it('期限順でも、同じ日なら優先度が高いほうが上', () => {
+    const a = todo({ id: 'a', dueDate: '2026-08-18', priority: 'low' })
+    const b = todo({ id: 'b', dueDate: '2026-08-18', priority: 'high' })
+    expect(sortTodos([a, b], 'due').map((t) => t.id)).toEqual(['b', 'a'])
+  })
+
+  it('どちらの並びでも完了は下', () => {
+    const finished = todo({ id: 'done', done: true, priority: 'high' })
+    expect(sortTodos([finished, low], 'priority').map((t) => t.id)).toEqual(['low', 'done'])
+  })
+})
+
+describe('古い完了タスクの掃除', () => {
+  const old = todo({
+    id: 'old',
+    done: true,
+    completedAt: '2026-05-01T00:00:00.000Z',
+    dueDate: '2026-05-01',
+  })
+  const recent = todo({
+    id: 'recent',
+    done: true,
+    completedAt: '2026-08-15T00:00:00.000Z',
+    dueDate: '2026-08-15',
+  })
+  const now = '2026-08-17T00:00:00.000Z'
+  const withSettings = (days: number, todos = [old, recent, todo({ id: 'active' })]) => ({
+    ...emptyStore,
+    todos,
+    settings: { ...emptyStore.settings, archiveAfterDays: days },
+  })
+
+  it('期間を過ぎた完了タスクだけ消す', () => {
+    const next = archiveOld(withSettings(90), now)
+    expect(next.todos.map((t) => t.id)).toEqual(['recent', 'active'])
+  })
+
+  it('消したことを墓標で残す（他の端末にも伝わる）', () => {
+    const next = archiveOld(withSettings(90), now)
+    expect(next.tombstones).toEqual([{ id: 'old', kind: 'todo', deletedAt: now }])
+  })
+
+  it('0 なら何もしない', () => {
+    expect(archiveOld(withSettings(0), now).todos).toHaveLength(3)
+  })
+
+  it('消すものが無ければ元の参照をそのまま返す', () => {
+    const store = withSettings(90, [recent])
+    expect(archiveOld(store, now)).toBe(store)
+  })
+
+  it('未完了は期限が古くても消さない', () => {
+    const stale = todo({ id: 'stale', dueDate: '2026-01-01' })
+    expect(archiveOld(withSettings(30, [stale]), now).todos).toHaveLength(1)
+  })
+})
+
+describe('まとめて操作', () => {
+  const items = [todo({ id: 'a' }), todo({ id: 'b' }), todo({ id: 'c' })]
+  const store = { ...emptyStore, todos: items }
+  const now = '2026-08-17T10:00:00.000Z'
+
+  it('選んだものだけ完了にする', () => {
+    const next = storeReducer(store, { type: 'bulk:toggle', ids: ['a', 'c'], done: true, now })
+    expect(next.todos.map((t) => t.done)).toEqual([true, false, true])
+    expect(next.todos[0].completedAt).toBe(now)
+  })
+
+  it('選んだものの期限をまとめて変える', () => {
+    const next = storeReducer(store, { type: 'bulk:due', ids: ['b'], dueDate: '2026-08-20', now })
+    expect(next.todos[1].dueDate).toBe('2026-08-20')
+    // 期限が変わったら、通知済みの印は消す（新しい期限で鳴らし直す）。
+    expect(next.todos[1].notifiedAt).toBeNull()
+  })
+
+  it('期限を外すと時刻も外れる', () => {
+    const timed = { ...emptyStore, todos: [todo({ id: 'a', dueDate: '2026-08-17', dueTime: '10:00' })] }
+    const next = storeReducer(timed, { type: 'bulk:due', ids: ['a'], dueDate: null, now })
+    expect(next.todos[0]).toMatchObject({ dueDate: null, dueTime: null })
+  })
+
+  it('選んだものをまとめて消し、墓標を残す', () => {
+    const next = storeReducer(store, { type: 'bulk:remove', ids: ['a', 'b'], now })
+    expect(next.todos.map((t) => t.id)).toEqual(['c'])
+    expect(next.tombstones.map((t) => t.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('何も選んでいなければ何も起きない', () => {
+    expect(storeReducer(store, { type: 'bulk:remove', ids: [], now })).toBe(store)
   })
 })

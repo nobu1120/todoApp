@@ -1,14 +1,16 @@
 import type {
   Category,
   Filter,
+  Repeat,
   Settings,
+  SortMode,
   StatusFilter,
   Subtask,
   Todo,
   TodoStore,
   Tombstone,
 } from '../types'
-import { isOverdue, parseISODate, todayISO } from './date'
+import { addDays, addMonthsToDate, diffInDays, isOverdue, parseISODate, todayISO } from './date'
 
 export type NewTodoInput = {
   title: string
@@ -18,9 +20,14 @@ export type NewTodoInput = {
   categoryId?: string | null
 }
 
+const PRIORITY_RANK: Record<Todo['priority'], number> = { high: 0, normal: 1, low: 2 }
+
 /** 編集できるフィールドだけを露出する。id や createdAt は書き換えさせない。 */
 export type TodoPatch = Partial<
-  Pick<Todo, 'title' | 'dueDate' | 'dueTime' | 'icon' | 'categoryId' | 'notes' | 'priority'>
+  Pick<
+    Todo,
+    'title' | 'dueDate' | 'dueTime' | 'icon' | 'categoryId' | 'notes' | 'priority' | 'repeat'
+  >
 >
 
 export function createTodo(
@@ -43,6 +50,49 @@ export function createTodo(
     subtasks: [],
     notifiedAt: null,
     priority: 'normal',
+    repeat: 'none',
+  }
+}
+
+/**
+ * 繰り返しタスクの次の期限。期限が無ければ繰り返しようがないので null。
+ * すでに過ぎている場合は、今日より後になるまで進める
+ * （3 日ぶん溜めてから消化しても、次が過去日にならないように）。
+ */
+export function nextDueDate(
+  dueDate: string | null,
+  repeat: Repeat,
+  today: string = todayISO(),
+): string | null {
+  if (dueDate === null || repeat === 'none') return null
+  const step = (from: string): string =>
+    repeat === 'daily'
+      ? addDays(from, 1)
+      : repeat === 'weekly'
+        ? addDays(from, 7)
+        : addMonthsToDate(from, 1)
+
+  let next = step(dueDate)
+  // 取りこぼしを詰めるが、暴走しないよう回数で頭打ちにする。
+  for (let i = 0; i < 400 && next <= today; i++) next = step(next)
+  return next
+}
+
+/** 完了した繰り返しタスクから、次回ぶんを作る。 */
+export function repeatOf(todo: Todo, now: string, today: string, id: string): Todo | null {
+  const due = nextDueDate(todo.dueDate, todo.repeat, today)
+  if (due === null) return null
+  return {
+    ...todo,
+    id,
+    done: false,
+    dueDate: due,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+    notifiedAt: null,
+    // サブタスクは同じ内容で作り直す。チェックは戻す。
+    subtasks: todo.subtasks.map((s) => ({ ...s, done: false })),
   }
 }
 
@@ -56,8 +106,12 @@ export type Action =
   /** 新規追加と、削除の取り消し（保存しておいた Todo をそのまま戻す）の両方に使う。 */
   | { type: 'add'; todo: Todo }
   | { type: 'update'; id: string; patch: TodoPatch; now: string }
-  | { type: 'toggle'; id: string; now: string }
+  /** nextId / today は繰り返しタスクの次回ぶんを作るときだけ使う。 */
+  | { type: 'toggle'; id: string; now: string; nextId?: string; today?: string }
   | { type: 'remove'; id: string; now: string }
+  | { type: 'bulk:toggle'; ids: string[]; done: boolean; now: string }
+  | { type: 'bulk:due'; ids: string[]; dueDate: string | null; now: string }
+  | { type: 'bulk:remove'; ids: string[]; now: string }
   /** 同期で受け取った内容をそのまま反映する。updatedAt は触らない。 */
   | { type: 'sync:replace'; store: TodoStore }
   /** 通知済みとして記録し、同じタスクで二度鳴らないようにする。 */
@@ -124,8 +178,9 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
         return next
       })
 
-    case 'toggle':
-      return mapTodo(store, action.id, (todo) => {
+    case 'toggle': {
+      const target = store.todos.find((todo) => todo.id === action.id)
+      const toggled = mapTodo(store, action.id, (todo) => {
         const done = !todo.done
         return {
           ...todo,
@@ -134,6 +189,60 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
           updatedAt: action.now,
         }
       })
+      // 繰り返しタスクを完了にしたら、次回ぶんをその場で作る。
+      if (target === undefined || target.done || action.nextId === undefined) return toggled
+      const next = repeatOf(target, action.now, action.today ?? action.now.slice(0, 10), action.nextId)
+      return next === null ? toggled : { ...toggled, todos: [...toggled.todos, next] }
+    }
+
+    case 'bulk:toggle': {
+      const ids = new Set(action.ids)
+      return {
+        ...store,
+        todos: store.todos.map((todo) =>
+          ids.has(todo.id) && todo.done !== action.done
+            ? {
+                ...todo,
+                done: action.done,
+                completedAt: action.done ? action.now : null,
+                updatedAt: action.now,
+              }
+            : todo,
+        ),
+      }
+    }
+
+    case 'bulk:due': {
+      const ids = new Set(action.ids)
+      return {
+        ...store,
+        todos: store.todos.map((todo) =>
+          ids.has(todo.id)
+            ? {
+                ...todo,
+                dueDate: action.dueDate,
+                // 期限を外したら時刻も外す（時刻だけ残っても意味がない）。
+                dueTime: action.dueDate === null ? null : todo.dueTime,
+                notifiedAt: null,
+                updatedAt: action.now,
+              }
+            : todo,
+        ),
+      }
+    }
+
+    case 'bulk:remove': {
+      const ids = new Set(action.ids)
+      if (ids.size === 0) return store
+      return {
+        ...store,
+        todos: store.todos.filter((todo) => !ids.has(todo.id)),
+        tombstones: [
+          ...store.tombstones.filter((t) => !ids.has(t.id)),
+          ...[...ids].map((id) => ({ id, kind: 'todo' as const, deletedAt: action.now })),
+        ],
+      }
+    }
 
     case 'remove':
       if (!store.todos.some((todo) => todo.id === action.id)) return store
@@ -270,27 +379,78 @@ export function matchesStatus(todo: Todo, status: StatusFilter, today: string): 
   }
 }
 
+/** タイトルとメモの部分一致。大文字小文字とカナの幅は問わない。 */
+export function matchesQuery(todo: Todo, query: string): boolean {
+  const q = normalizeForSearch(query)
+  if (q === '') return true
+  return normalizeForSearch(`${todo.title} ${todo.notes}`).includes(q)
+}
+
+function normalizeForSearch(value: string): string {
+  return value
+    .normalize('NFKC') // 全角英数・半角カナの揺れを吸収する
+    .toLowerCase()
+    .trim()
+}
+
 export function filterTodos(todos: Todo[], filter: Filter, today: string = todayISO()): Todo[] {
   return todos.filter(
     (todo) =>
       matchesStatus(todo, filter.status, today) &&
-      (filter.categoryId === null || todo.categoryId === filter.categoryId),
+      (filter.categoryId === null || todo.categoryId === filter.categoryId) &&
+      matchesQuery(todo, filter.query),
   )
 }
 
 /**
- * 未完了が上 → 期限が近い順（期限なしは末尾）→ 作成が新しい順。
- * 元配列は変更しない。
+ * 完了から一定期間たったタスクを取り除く。
+ * 放っておくと完了タスクが無限に溜まり、同期のたびに全件を往復することになる。
+ * 消えたことを他の端末にも伝えるため、墓標を残す。
  */
-export function sortTodos(todos: Todo[]): Todo[] {
+export function archiveOld(store: TodoStore, now: string): TodoStore {
+  const days = store.settings.archiveAfterDays
+  if (days <= 0) return store
+
+  const today = now.slice(0, 10)
+  const stale = store.todos.filter(
+    // diffInDays(a, b) は a - b。「今日 - 完了日」が保存期間を超えたら消す。
+    (t) => t.done && t.completedAt !== null && diffInDays(today, t.completedAt.slice(0, 10)) >= days,
+  )
+  if (stale.length === 0) return store
+
+  const ids = new Set(stale.map((t) => t.id))
+  return {
+    ...store,
+    todos: store.todos.filter((t) => !ids.has(t.id)),
+    tombstones: [
+      ...store.tombstones,
+      ...stale.map((t) => ({ id: t.id, kind: 'todo' as const, deletedAt: now })),
+    ],
+  }
+}
+
+/**
+ * 未完了が上 → （並び順の指定）→ 作成が新しい順。元配列は変更しない。
+ *
+ * 'due'      期限が近い順（期限なしは末尾）。同じ日なら優先度の高いほうが上。
+ * 'priority' 優先度順。同じ優先度なら期限が近い順。
+ */
+export function sortTodos(todos: Todo[], mode: SortMode = 'due'): Todo[] {
+  const byDue = (a: Todo, b: Todo) => {
+    if (a.dueDate === b.dueDate) return 0
+    if (a.dueDate === null) return 1
+    if (b.dueDate === null) return -1
+    return a.dueDate < b.dueDate ? -1 : 1
+  }
+  const byPriority = (a: Todo, b: Todo) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]
+
   return [...todos].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1
 
-    if (a.dueDate !== b.dueDate) {
-      if (a.dueDate === null) return 1
-      if (b.dueDate === null) return -1
-      return a.dueDate < b.dueDate ? -1 : 1
-    }
+    const first = mode === 'priority' ? byPriority(a, b) : byDue(a, b)
+    if (first !== 0) return first
+    const second = mode === 'priority' ? byDue(a, b) : byPriority(a, b)
+    if (second !== 0) return second
 
     if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1
     return 0

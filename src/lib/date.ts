@@ -32,6 +32,26 @@ export function parseISODate(iso: string, time: string | null = null): Date {
 }
 
 /** a - b の日数差。同じ日なら 0、a が翌日なら 1。 */
+/**
+ * 'YYYY-MM-DD' を暦どおりに進める。月をまたぐ計算は Date に任せる。
+ * 月送りで末日が無い月（1/31 の 1 か月後）は、その月の末日に丸める。
+ */
+export function addDays(iso: string, days: number): string {
+  const d = parseISODate(iso)
+  d.setDate(d.getDate() + days)
+  return toISODate(d)
+}
+
+export function addMonthsToDate(iso: string, months: number): string {
+  const d = parseISODate(iso)
+  const day = d.getDate()
+  d.setDate(1)
+  d.setMonth(d.getMonth() + months)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(day, lastDay))
+  return toISODate(d)
+}
+
 export function diffInDays(a: string, b: string): number {
   const MS_PER_DAY = 24 * 60 * 60 * 1000
   // 0 時どうしの差なので、DST で 23h / 25h になっても四捨五入で正しい日数になる。

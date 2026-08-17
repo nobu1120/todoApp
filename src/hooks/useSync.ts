@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { RealtimeChannel, Session } from '@supabase/supabase-js'
 import type { TodoStore } from '../types'
-import { VAPID_PUBLIC_KEY, localTimeZone, supabase } from '../lib/supabase'
+import { VAPID_PUBLIC_KEY, getSupabase, hasStoredSession, localTimeZone } from '../lib/supabase'
 import {
   mergeStore,
   toRemoteCategory,
@@ -34,11 +34,30 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     storeRef.current = store
   })
 
+  /**
+   * Supabase 本体はここで初めて読み込む。
+   * 前にログインした痕跡が無ければ、読み込まずに待つ（ログインは任意の機能なので、
+   * 使わない人に 220KB を配らない）。ログイン操作をした時点で読み込まれる。
+   */
+  const [needsAuth, setNeedsAuth] = useState(() => hasStoredSession())
+
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
-    return () => data.subscription.unsubscribe()
-  }, [])
+    if (!needsAuth) return
+    let unsubscribe: (() => void) | null = null
+    let cancelled = false
+
+    void getSupabase().then((supabase) => {
+      if (cancelled) return
+      void supabase.auth.getSession().then(({ data }) => setSession(data.session))
+      const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+      unsubscribe = () => data.subscription.unsubscribe()
+    })
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [needsAuth])
 
   const userId = session?.user.id ?? null
 
@@ -48,6 +67,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     setStatus('syncing')
     setError(null)
     try {
+      const supabase = await getSupabase()
       const [todos, categories, settings] = await Promise.all([
         supabase.from('todo_items').select('*').eq('user_id', userId),
         supabase.from('todo_categories').select('*').eq('user_id', userId),
@@ -122,6 +142,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
 
     setStatus('syncing')
     try {
+      const supabase = await getSupabase()
       const now = new Date().toISOString()
       if (todos.length > 0) {
         const { error: e } = await supabase
@@ -187,23 +208,30 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
       timer = setTimeout(() => void fullSync(), 400)
     }
 
-    const channel = supabase
-      .channel(`todo-sync-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todo_items', filter: `user_id=eq.${userId}` },
-        schedule,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todo_categories', filter: `user_id=eq.${userId}` },
-        schedule,
-      )
-      .subscribe()
+    let channel: RealtimeChannel | null = null
+    let cancelled = false
+
+    void getSupabase().then((supabase) => {
+      if (cancelled) return
+      channel = supabase
+        .channel(`todo-sync-${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'todo_items', filter: `user_id=eq.${userId}` },
+          schedule,
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'todo_categories', filter: `user_id=eq.${userId}` },
+          schedule,
+        )
+        .subscribe()
+    })
 
     return () => {
+      cancelled = true
       if (timer !== null) clearTimeout(timer)
-      void supabase.removeChannel(channel)
+      if (channel !== null) void getSupabase().then((supabase) => supabase.removeChannel(channel!))
     }
   }, [userId, fullSync])
 
@@ -220,6 +248,9 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
   // --- 操作 ---
 
   const signIn = useCallback(async (email: string) => {
+    // ログイン操作をした時点で本体が要る。以降は購読も始める。
+    setNeedsAuth(true)
+    const supabase = await getSupabase()
     const { error: e } = await supabase.auth.signInWithOtp({
       email,
       // 許可リストと突き合わせやすいよう、問い合わせ文字列を含まない固定の URL を渡す。
@@ -238,6 +269,8 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     if (parsed === null) {
       throw new Error('リンクからログイン用のトークンを読み取れませんでした。メール内のリンクをそのまま貼り付けてください。')
     }
+    setNeedsAuth(true)
+    const supabase = await getSupabase()
     const { error: e } = await supabase.auth.verifyOtp({
       token_hash: parsed.tokenHash,
       type: parsed.type,
@@ -246,6 +279,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
   }, [])
 
   const signOut = useCallback(async () => {
+    const supabase = await getSupabase()
     const endpoint = await unsubscribeFromPush()
     if (endpoint !== null) {
       await supabase.from('todo_push_subscriptions').delete().eq('endpoint', endpoint)
@@ -260,6 +294,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     if (userId === null) return false
     const keys = await subscribeToPush(VAPID_PUBLIC_KEY)
     if (keys === null) return false
+    const supabase = await getSupabase()
     const { error: e } = await supabase.from('todo_push_subscriptions').upsert({
       endpoint: keys.endpoint,
       user_id: userId,

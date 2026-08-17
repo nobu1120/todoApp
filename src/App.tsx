@@ -1,6 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Filter, StatusFilter } from './types'
 import { countActive, filterTodos, matchesStatus, needsAttention, sortTodos } from './lib/todos'
+import { ensureServiceWorker } from './lib/notify'
+import { addDays } from './lib/date'
+import { SelectionBar } from './components/SelectionBar'
 import { useTodos } from './hooks/useTodos'
 import { useToday } from './hooks/useToday'
 import { useNotifications } from './hooks/useNotifications'
@@ -33,7 +36,9 @@ export default function App() {
   const { store } = todo
   const { todos, categories, settings } = store
 
-  const [filter, setFilter] = useState<Filter>({ status: 'all', categoryId: null })
+  const [filter, setFilter] = useState<Filter>({ status: 'all', categoryId: null, query: '' })
+  const [selecting, setSelecting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [openId, setOpenId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -66,7 +71,10 @@ export default function App() {
     paused: sync.pushReady,
   })
 
-  const visible = useMemo(() => sortTodos(filterTodos(todos, filter, today)), [todos, filter, today])
+  const visible = useMemo(
+    () => sortTodos(filterTodos(todos, filter, today), settings.sortMode),
+    [todos, filter, today, settings.sortMode],
+  )
 
   // 「完了」フィルタを選んでいるときは、下の完了セクションと二重になるので分けない。
   const showingDoneFilter = filter.status === 'done'
@@ -109,6 +117,59 @@ export default function App() {
 
   const attention = useMemo(() => needsAttention(todos, today), [todos, today])
   const openTodo = openId === null ? null : (todos.find((t) => t.id === openId) ?? null)
+
+  /**
+   * Service Worker を起動時に登録する。通知を使わない人でも、
+   * これが無いとオフラインで開けない。
+   */
+  useEffect(() => {
+    void ensureServiceWorker()
+  }, [])
+
+  /**
+   * 通知の「完了」から戻ってきたぶんを片付ける。
+   * 開いているタブがあれば postMessage、無ければ URL に載って起動する。
+   */
+  useEffect(() => {
+    const done = (id: string) => {
+      const target = todo.store.todos.find((t) => t.id === id)
+      if (target !== undefined && !target.done) todo.toggle(id)
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    const fromUrl = params.get('done')
+    if (fromUrl !== null) {
+      done(fromUrl)
+      // 再読み込みで二重に効かないよう、URL からは消す。
+      params.delete('done')
+      const rest = params.toString()
+      window.history.replaceState(null, '', window.location.pathname + (rest === '' ? '' : `?${rest}`))
+    }
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'todo:done' && typeof event.data.id === 'string') done(event.data.id)
+    }
+    navigator.serviceWorker?.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage)
+    // 起動時の 1 回だけでよい。todo は毎回変わるので依存に入れない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const selectedList = useMemo(() => [...selectedIds], [selectedIds])
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const leaveSelecting = useCallback(() => {
+    setSelecting(false)
+    setSelectedIds(new Set())
+  }, [])
 
   const jump = useCallback((status: StatusFilter) => {
     setFilter((f) => ({ ...f, status }))
@@ -180,7 +241,11 @@ export default function App() {
         counts={counts}
         categories={categories}
         categoryCounts={categoryCounts}
+        sortMode={settings.sortMode}
+        selecting={selecting}
         onChange={setFilter}
+        onChangeSort={(sortMode) => todo.updateSettings({ sortMode })}
+        onToggleSelecting={() => (selecting ? leaveSelecting() : setSelecting(true))}
       />
 
       {active.length === 0 && done.length === 0 ? (
@@ -207,9 +272,12 @@ export default function App() {
           todos={active}
           categories={categories}
           today={today}
+          selecting={selecting}
+          selectedIds={selectedIds}
           onToggle={todo.toggle}
           onOpen={setOpenId}
           onRemove={todo.remove}
+          onSelect={toggleSelected}
         />
       )}
 
@@ -267,6 +335,8 @@ export default function App() {
           categories={categories}
           categoryUsage={categoryUsage}
           resolvedAppearance={resolvedAppearance}
+          store={store}
+          onImport={todo.importStore}
           signedIn={sync.session !== null}
           pushReady={sync.pushReady}
           onUpdateSettings={todo.updateSettings}
@@ -291,6 +361,31 @@ export default function App() {
           onSync={sync.fullSync}
         />
       </Drawer>
+
+      {selecting && (
+        <SelectionBar
+          count={selectedIds.size}
+          total={active.length}
+          onSelectAll={() => setSelectedIds(new Set(active.map((t) => t.id)))}
+          onClear={() => setSelectedIds(new Set())}
+          onDone={() => {
+            todo.bulkToggle(selectedList, true)
+            leaveSelecting()
+          }}
+          onDueToday={() => {
+            todo.bulkDue(selectedList, today)
+            leaveSelecting()
+          }}
+          onDueTomorrow={() => {
+            todo.bulkDue(selectedList, addDays(today, 1))
+            leaveSelecting()
+          }}
+          onRemove={() => {
+            todo.bulkRemove(selectedList)
+            leaveSelecting()
+          }}
+        />
+      )}
 
       {todo.lastRemoved !== null && (
         <div className="undo" role="status">

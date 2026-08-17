@@ -27,6 +27,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     subtasks: [],
     notifiedAt: null,
     priority: 'normal',
+    repeat: 'none',
     ...overrides,
   }
 }

@@ -8,12 +8,25 @@ type Props = {
   todo: Todo
   categories: Category[]
   today: string
+  selecting?: boolean
+  selected?: boolean
   onToggle: (id: string) => void
   onOpen: (id: string) => void
   onRemove: (id: string) => void
+  onSelect?: (id: string) => void
 }
 
-export function TodoItem({ todo, categories, today, onToggle, onOpen, onRemove }: Props) {
+export function TodoItem({
+  todo,
+  categories,
+  today,
+  selecting = false,
+  selected = false,
+  onToggle,
+  onOpen,
+  onRemove,
+  onSelect,
+}: Props) {
   const category = findCategory(categories, todo.categoryId)
   const progress = progressOf(todo)
   const overdue = !todo.done && isOverdue(todo.dueDate, today)
@@ -23,25 +36,50 @@ export function TodoItem({ todo, categories, today, onToggle, onOpen, onRemove }
   const hasMeta = category !== null || progress !== null || todo.notes.trim() !== ''
 
   return (
-    <li className={`todo-item${todo.done ? ' todo-item--done' : ''}`}>
+    <li
+      className={
+        'todo-item' +
+        (todo.done ? ' todo-item--done' : '') +
+        (selecting && selected ? ' is-selected' : '')
+      }
+      data-priority={todo.priority}
+    >
       <label className="todo-item__check">
         <input
-          className="check check--lg"
+          className={`check check--lg${selecting ? ' check--select' : ''}`}
           type="checkbox"
-          checked={todo.done}
-          onChange={() => onToggle(todo.id)}
-          aria-label={`${todo.title} を${todo.done ? '未完了に戻す' : '完了にする'}`}
+          checked={selecting ? selected : todo.done}
+          onChange={() => (selecting ? onSelect?.(todo.id) : onToggle(todo.id))}
+          aria-label={
+            selecting
+              ? `${todo.title} を選ぶ`
+              : `${todo.title} を${todo.done ? '未完了に戻す' : '完了にする'}`
+          }
         />
       </label>
 
-      <button type="button" className="todo-item__main" onClick={() => onOpen(todo.id)}>
+      <button
+        type="button"
+        className="todo-item__main"
+        onClick={() => (selecting ? onSelect?.(todo.id) : onOpen(todo.id))}
+      >
         <span className="todo-item__line">
           {todo.icon !== '' && (
             <span className="todo-item__emoji" aria-hidden="true">
               {todo.icon}
             </span>
           )}
+          {todo.priority !== 'normal' && (
+            <span className={`prio prio--${todo.priority}`} aria-label={`優先度 ${todo.priority === 'high' ? '高' : '低'}`}>
+              {todo.priority === 'high' ? '高' : '低'}
+            </span>
+          )}
           <span className="todo-item__title">{todo.title}</span>
+          {todo.repeat !== 'none' && (
+            <span className="todo-item__repeat" aria-label="繰り返し">
+              <Icon name="repeat" />
+            </span>
+          )}
         </span>
 
         {hasMeta && (

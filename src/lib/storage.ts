@@ -2,6 +2,8 @@ import type {
   Category,
   CategoryColor,
   Priority,
+  Repeat,
+  SortMode,
   Settings,
   Subtask,
   Todo,
@@ -13,7 +15,7 @@ import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 const STORAGE_KEY = 'todoApp.store'
-export const CURRENT_VERSION = 4
+export const CURRENT_VERSION = 5
 
 /** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -25,6 +27,9 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   // 既定は端末の設定に従う。端末ごとに明暗が違っていて自然なため。
   appearance: DEFAULT_APPEARANCE,
+  sortMode: 'due',
+  // 完了から 90 日たったタスクは自動で消す。0 にすると消さない。
+  archiveAfterDays: 90,
   // 一度も触っていない設定は、同期時にサーバー側へ譲る。
   updatedAt: new Date(0).toISOString(),
 }
@@ -38,6 +43,10 @@ export const emptyStore: TodoStore = {
 }
 
 const PRIORITIES: Priority[] = ['high', 'normal', 'low']
+const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly']
+const SORT_MODES: SortMode[] = ['due', 'priority']
+/** 設定で選べる保存期間。ここに無い値は既定に落とす。 */
+const ARCHIVE_DAYS = [0, 30, 90, 365]
 
 const asString = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback)
 
@@ -88,6 +97,7 @@ function parseTodo(value: unknown): Todo | null {
       : [],
     notifiedAt: typeof raw.notifiedAt === 'string' ? raw.notifiedAt : null,
     priority: PRIORITIES.includes(raw.priority as Priority) ? (raw.priority as Priority) : 'normal',
+    repeat: REPEATS.includes(raw.repeat as Repeat) ? (raw.repeat as Repeat) : 'none',
   }
 }
 
@@ -120,6 +130,13 @@ export function parseSettings(value: unknown): Settings {
     // 知らないテーマ名（消したテーマ・古い版）は既定に落とす。
     theme: isThemeId(raw.theme) ? raw.theme : DEFAULT_THEME,
     appearance: isAppearance(raw.appearance) ? raw.appearance : DEFAULT_APPEARANCE,
+    sortMode: SORT_MODES.includes(raw.sortMode as SortMode)
+      ? (raw.sortMode as SortMode)
+      : DEFAULT_SETTINGS.sortMode,
+    archiveAfterDays:
+      typeof raw.archiveAfterDays === 'number' && ARCHIVE_DAYS.includes(raw.archiveAfterDays)
+        ? raw.archiveAfterDays
+        : DEFAULT_SETTINGS.archiveAfterDays,
     updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : DEFAULT_SETTINGS.updatedAt,
   }
 }
@@ -142,6 +159,7 @@ function parseTombstone(value: unknown, now: number): Tombstone | null {
  * 足りないフィールドを既定値で埋め、カテゴリと設定を新設することで行う。
  * v2 → v3 は墓標の配列を足すだけ。
  * v3 → v4 は設定にテーマと明暗を足すだけ（parseSettings が既定で埋める）。
+ * v4 → v5 は繰り返し・並び順・保存期間を足すだけ。いずれも既定値で埋まる。
  */
 export function migrate(value: unknown, now: number = Date.now()): TodoStore {
   if (typeof value !== 'object' || value === null) return emptyStore

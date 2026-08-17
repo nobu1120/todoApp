@@ -23,6 +23,7 @@ export type RemoteTodo = {
   notes: string
   subtasks: unknown
   priority: string
+  repeat: string | null
   notified_at: string | null
   created_at: string
   updated_at: string
@@ -49,6 +50,8 @@ export type RemoteSettings = {
   default_notify_time: string
   time_zone: string
   theme: string | null
+  sort_mode: string | null
+  archive_after_days: number | null
   updated_at: string
 }
 
@@ -70,6 +73,7 @@ export function toRemoteTodo(todo: Todo, userId: string): RemoteTodo {
     notes: todo.notes,
     subtasks: todo.subtasks,
     priority: todo.priority,
+    repeat: todo.repeat,
     notified_at: todo.notifiedAt,
     created_at: todo.createdAt,
     updated_at: todo.updatedAt,
@@ -100,6 +104,8 @@ export function toRemoteSettings(
     default_notify_time: settings.defaultNotifyTime,
     time_zone: timeZone,
     theme: settings.theme,
+    sort_mode: settings.sortMode,
+    archive_after_days: settings.archiveAfterDays,
     // 「いつの設定か」をそのまま載せる。ここを送信時刻にすると、
     // 取り込んだだけの値が常に最新に見えて、他の端末の変更を潰してしまう。
     updated_at: settings.updatedAt,
@@ -120,6 +126,11 @@ export function fromRemoteSettings(row: RemoteSettings, fallback: Settings): Set
     theme: isThemeId(row.theme) ? row.theme : fallback.theme,
     // 明暗は同期しない。この端末の指定をそのまま残す。
     appearance: fallback.appearance,
+    sortMode: row.sort_mode === 'priority' || row.sort_mode === 'due' ? row.sort_mode : fallback.sortMode,
+    archiveAfterDays:
+      typeof row.archive_after_days === 'number' && row.archive_after_days >= 0
+        ? row.archive_after_days
+        : fallback.archiveAfterDays,
     updatedAt: row.updated_at,
   }
 }
@@ -150,6 +161,10 @@ export function fromRemoteTodo(row: RemoteTodo): Todo {
     notifiedAt: row.notified_at,
     priority:
       row.priority === 'high' || row.priority === 'low' ? row.priority : 'normal',
+    repeat:
+      row.repeat === 'daily' || row.repeat === 'weekly' || row.repeat === 'monthly'
+        ? row.repeat
+        : 'none',
   }
 }
 

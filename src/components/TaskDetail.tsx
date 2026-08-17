@@ -1,10 +1,23 @@
 import { useState } from 'react'
-import type { Category, Todo } from '../types'
+import type { Category, Priority, Repeat, Todo } from '../types'
 import type { TodoPatch } from '../lib/todos'
 import { progressOf } from '../lib/todos'
 import { Icon } from './Icon'
 import { EmojiPicker } from './EmojiPicker'
 import { SubtaskList } from './SubtaskList'
+
+const PRIORITIES: { value: Priority; label: string }[] = [
+  { value: 'high', label: '高' },
+  { value: 'normal', label: '標準' },
+  { value: 'low', label: '低' },
+]
+
+const REPEATS: { value: Repeat; label: string }[] = [
+  { value: 'none', label: '繰り返さない' },
+  { value: 'daily', label: '毎日' },
+  { value: 'weekly', label: '毎週' },
+  { value: 'monthly', label: '毎月' },
+]
 
 type Props = {
   todo: Todo
@@ -118,6 +131,45 @@ export function TaskDetail({
         {todo.dueDate !== null && todo.dueTime === null && (
           <p className="detail__hint">時刻を入れないと、設定した既定の時刻に通知します。</p>
         )}
+
+        {/* 繰り返しは期限があって初めて意味を持つ。無いときは出さない。 */}
+        {todo.dueDate !== null && (
+          <div className="chip-row" role="group" aria-label="繰り返し">
+            {REPEATS.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                className={`chip${todo.repeat === r.value ? ' is-selected' : ''}`}
+                onClick={() => onUpdate({ repeat: r.value })}
+                aria-pressed={todo.repeat === r.value}
+              >
+                {r.value !== 'none' && <Icon name="repeat" />}
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {todo.dueDate !== null && todo.repeat !== 'none' && (
+          <p className="detail__hint">完了にすると、次回ぶんが自動で作られます。</p>
+        )}
+      </section>
+
+      <section className="detail__section">
+        <h3 className="detail__label">優先度</h3>
+        <div className="chip-row" role="group" aria-label="優先度">
+          {PRIORITIES.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              className={`chip chip--priority${todo.priority === p.value ? ' is-selected' : ''}`}
+              data-priority={p.value}
+              onClick={() => onUpdate({ priority: p.value })}
+              aria-pressed={todo.priority === p.value}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="detail__section">

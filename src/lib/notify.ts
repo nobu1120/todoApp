@@ -31,7 +31,7 @@ export async function requestPermission(): Promise<PermissionState> {
 let registration: ServiceWorkerRegistration | null = null
 
 /**
- * 通知用の Service Worker を用意する。
+ * Service Worker を用意する。通知とオフラインの両方がこれに乗る。
  * 登録できなくてもアプリは動くので、失敗は握って null を返す。
  */
 export async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
@@ -118,13 +118,19 @@ export async function showTodoNotification(todo: Todo, today: string): Promise<v
     // 同じタスクの通知が積み上がらないよう、id で置き換える。
     tag: `todo-${todo.id}`,
     icon: `${import.meta.env.BASE_URL}icon-192.png`,
+    data: { id: todo.id },
   }
 
   // モバイルではこちらしか通らない。まず Service Worker 経由で試す。
   const reg = await ensureServiceWorker()
   if (reg !== null) {
     try {
-      await reg.showNotification(title, options)
+      // 通知そのものから片付けられるようにする。actions は Service Worker 経由の
+      // 通知にしか付けられず、TS の NotificationOptions にも載っていない。
+      await reg.showNotification(title, {
+        ...options,
+        actions: [{ action: 'done', title: '完了' }],
+      } as NotificationOptions & { actions: { action: string; title: string }[] })
       return
     } catch {
       // 登録はできたが通知は出せなかった場合、下の経路にフォールバックする。

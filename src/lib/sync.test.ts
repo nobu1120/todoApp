@@ -29,6 +29,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     subtasks: [],
     notifiedAt: null,
     priority: 'normal',
+    repeat: 'none',
     ...overrides,
   }
 }
@@ -212,6 +213,8 @@ describe('mergeStore: 設定', () => {
     default_notify_time: '08:15:00',
     time_zone: 'Asia/Tokyo',
     theme: 'washi',
+    sort_mode: 'due',
+    archive_after_days: 90,
     updated_at: '2026-08-05T00:00:00.000Z',
     ...patch,
   })
@@ -312,6 +315,8 @@ describe('toRemoteSettings', () => {
       default_notify_time: '09:00',
       time_zone: 'Asia/Tokyo',
       theme: 'seventies',
+      sort_mode: 'due',
+      archive_after_days: 90,
       updated_at: '2026-08-09T00:00:00.000Z',
     })
     expect(row).not.toHaveProperty('appearance')

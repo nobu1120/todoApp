@@ -9,12 +9,18 @@ import {
 } from '../lib/todos'
 import { createCategory } from '../lib/categories'
 import { load, save } from '../lib/storage'
+import { archiveOld } from '../lib/todos'
+import { mergeBackup } from '../lib/backup'
+import { todayISO } from '../lib/date'
 
 /** 削除の取り消しを出しておく時間。 */
 const UNDO_TIMEOUT_MS = 6000
 
 export function useTodos() {
-  const [store, dispatch] = useReducer(storeReducer, undefined, load)
+  // 起動時に一度だけ、古い完了タスクを掃除する。
+  const [store, dispatch] = useReducer(storeReducer, undefined, () =>
+    archiveOld(load(), new Date().toISOString()),
+  )
 
   // 直前に削除した Todo。「元に戻す」で丸ごと復元する。
   const [lastRemoved, setLastRemoved] = useState<Todo | null>(null)
@@ -35,7 +41,21 @@ export function useTodos() {
       add: (input: NewTodoInput) => dispatch({ type: 'add', todo: createTodo(input) }),
       update: (id: string, patch: TodoPatch) =>
         dispatch({ type: 'update', id, patch, now: now() }),
-      toggle: (id: string) => dispatch({ type: 'toggle', id, now: now() }),
+      // 繰り返しタスクの次回ぶんを作れるよう、id と今日をあらかじめ渡す。
+      toggle: (id: string) =>
+        dispatch({
+          type: 'toggle',
+          id,
+          now: now(),
+          nextId: crypto.randomUUID(),
+          today: todayISO(),
+        }),
+
+      bulkToggle: (ids: string[], done: boolean) =>
+        dispatch({ type: 'bulk:toggle', ids, done, now: now() }),
+      bulkDue: (ids: string[], dueDate: string | null) =>
+        dispatch({ type: 'bulk:due', ids, dueDate, now: now() }),
+      bulkRemove: (ids: string[]) => dispatch({ type: 'bulk:remove', ids, now: now() }),
       markNotified: (ids: string[]) => dispatch({ type: 'markNotified', ids, now: now() }),
 
       addSubtask: (id: string, title: string) =>
@@ -84,11 +104,22 @@ export function useTodos() {
     [store.todos],
   )
 
+  /** 書き出しファイルを取り込む。追加した件数を返す。 */
+  const importStore = useCallback(
+    (incoming: TodoStore) => {
+      const before = store.todos.length
+      const merged = mergeBackup(store, incoming)
+      dispatch({ type: 'sync:replace', store: merged })
+      return merged.todos.length - before
+    },
+    [store],
+  )
+
   const undoRemove = useCallback(() => {
     if (lastRemoved === null) return
     dispatch({ type: 'add', todo: lastRemoved })
     clearUndo()
   }, [lastRemoved, clearUndo])
 
-  return { store, ...actions, remove, lastRemoved, undoRemove, clearUndo }
+  return { store, ...actions, remove, importStore, lastRemoved, undoRemove, clearUndo }
 }

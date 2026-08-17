@@ -2295,3 +2295,154 @@ body:has(.app--calendar) {
     padding-top: 14px;
   }
 }
+
+/* --- 検索 --- */
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  backdrop-filter: var(--blur);
+}
+
+.search:focus-within {
+  border-color: var(--border-strong);
+}
+
+.search__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-muted);
+}
+
+.search__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 10px 0;
+  min-height: 44px;
+}
+
+.search__input:focus {
+  outline: none;
+}
+
+/* ブラウザ既定の × は消す。テーマに合わせた自前のボタンを出しているため。 */
+.search__input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* --- 並び順 --- */
+
+.filter--sort {
+  margin-left: auto;
+  gap: 5px;
+  color: var(--text-muted);
+}
+
+/* --- 優先度 --- */
+
+.prio {
+  flex: none;
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1.5;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid currentColor;
+}
+
+/* 高は目を引かせ、低は引かせない。色相ではなく強さで差をつける。 */
+.prio--high {
+  color: var(--alert-bg);
+}
+
+[data-appearance='dark'] .prio--high {
+  color: var(--alert-bg);
+}
+
+.prio--low {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.chip--priority[data-priority='high'].is-selected {
+  background: var(--alert-bg);
+  color: var(--alert-fg);
+  border-color: var(--alert-bg);
+}
+
+.todo-item__repeat {
+  flex: none;
+  display: inline-flex;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* --- まとめて操作 --- */
+
+.todo-item.is-selected {
+  background: var(--surface-2);
+}
+
+.check--select {
+  border-radius: var(--radius-sm);
+}
+
+.selection-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(520px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  backdrop-filter: var(--blur);
+}
+
+.selection-bar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.selection-bar__count {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.selection-bar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.selection-bar__actions button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 9px 6px;
+  min-height: 44px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* 選択バーが出ている間は、その下に隠れるものを作らない。 */
+body:has(.selection-bar) {
+  padding-bottom: 150px;
+}

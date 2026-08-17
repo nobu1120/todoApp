@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import type { Category, CategoryColor, Settings } from '../types'
+import type { Category, CategoryColor, Settings, TodoStore } from '../types'
 import type { PermissionState } from '../lib/notify'
 import { CATEGORY_COLORS } from '../lib/categories'
 import { Icon } from './Icon'
 import { ThemePicker } from './ThemePicker'
+import { DataPanel } from './DataPanel'
 
 type Props = {
   settings: Settings
@@ -12,6 +13,8 @@ type Props = {
   categoryUsage: Record<string, number>
   /** 'auto' を畳んだ結果。いまライトかダークかの表示に使う。 */
   resolvedAppearance: 'light' | 'dark'
+  store: TodoStore
+  onImport: (incoming: TodoStore) => number
   /** ログイン済みかどうか。閉じている間の通知にはログインが要る。 */
   signedIn: boolean
   pushReady: boolean
@@ -29,6 +32,8 @@ export function SettingsPanel({
   categories,
   categoryUsage,
   resolvedAppearance,
+  store,
+  onImport,
   signedIn,
   pushReady,
   onUpdateSettings,
@@ -128,6 +133,28 @@ export function SettingsPanel({
             )}
           </>
         )}
+      </section>
+
+      <section className="detail__section">
+        <h3 className="detail__label">データ</h3>
+        <DataPanel store={store} onImport={onImport} />
+
+        <label className="field">
+          <span className="field__label">古い完了タスクを自動で消す</span>
+          <select
+            value={settings.archiveAfterDays}
+            onChange={(e) => onUpdateSettings({ archiveAfterDays: Number(e.target.value) })}
+          >
+            <option value={0}>消さない</option>
+            <option value={30}>完了から 30 日</option>
+            <option value={90}>完了から 90 日</option>
+            <option value={365}>完了から 1 年</option>
+          </select>
+        </label>
+        <p className="detail__hint">
+          完了したタスクは放っておくと溜まり続け、同期のたびに全件をやり取りすることになります。
+          消えたことは他の端末にも伝わります。
+        </p>
       </section>
 
       <section className="detail__section">

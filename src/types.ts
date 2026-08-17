@@ -2,6 +2,12 @@ import type { Appearance, ThemeId } from './lib/themes'
 
 export type Priority = 'high' | 'normal' | 'low'
 
+/** 繰り返しの間隔。'none' は繰り返さない。 */
+export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly'
+
+/** 一覧の並び順。 */
+export type SortMode = 'due' | 'priority'
+
 export type Subtask = {
   id: string
   title: string
@@ -46,6 +52,8 @@ export type Todo = {
   /** 通知を出した時刻。重複通知を防ぐために記録する。 */
   notifiedAt: string | null
   priority: Priority
+  /** 完了したときに、次の予定を自動で作るか。期限がないタスクでは効かない。 */
+  repeat: Repeat
 }
 
 export type Settings = {
@@ -60,6 +68,13 @@ export type Settings = {
    * これは端末ごとの都合なので、同期はしない（別の端末の指定に引きずられないため）。
    */
   appearance: Appearance
+  /** 一覧の並び順。 */
+  sortMode: SortMode
+  /**
+   * 完了から何日たったタスクを自動で消すか。0 は消さない。
+   * 完了タスクは放っておくと無限に溜まり、同期のたびに全件を往復することになる。
+   */
+  archiveAfterDays: number
   /** 設定を最後に変えた時刻（ISO 8601）。同期時にどちらが新しいかの判定に使う。 */
   updatedAt: string
 }
@@ -75,7 +90,7 @@ export type Tombstone = {
 }
 
 export type TodoStore = {
-  schemaVersion: 4
+  schemaVersion: 5
   todos: Todo[]
   categories: Category[]
   settings: Settings
@@ -88,4 +103,6 @@ export type Filter = {
   status: StatusFilter
   /** null なら全カテゴリ。 */
   categoryId: string | null
+  /** タイトルとメモの部分一致。'' なら絞り込まない。 */
+  query: string
 }

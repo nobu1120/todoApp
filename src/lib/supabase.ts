@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 /*
  * 接続先。anon キーは「公開してよい鍵」で、実際の権限は RLS が決める。
@@ -15,14 +15,54 @@ export const SUPABASE_ANON_KEY =
 export const VAPID_PUBLIC_KEY =
   'BMOI9dagHrkXpY-2Nt_k2FcZDU-oKEqZhEp8FU1CJQn8Vl2ERkqBG2MEqFVuEAvbeGPB11aDNWihq5BLk-jjIdU'
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    // メールのリンクから戻ってきたときにセッションを拾う。
-    detectSessionInUrl: true,
-  },
-})
+/**
+ * Supabase のクライアントは動的に読み込む。
+ *
+ * 実測で JS の 46%（220KB）がこのライブラリで、ログインしない人にも
+ * 配っていた。ログインは任意の機能なので、必要になるまで読まない。
+ *
+ * 「必要になるまで」は 2 つ:
+ *   - 前にログインした痕跡が localStorage にある（＝すぐ同期したい）
+ *   - アカウント画面を開いた / ログイン操作をした
+ */
+let clientPromise: Promise<SupabaseClient> | null = null
+
+export function getSupabase(): Promise<SupabaseClient> {
+  if (clientPromise === null) {
+    clientPromise = import('@supabase/supabase-js').then(({ createClient }) =>
+      createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          // メールのリンクから戻ってきたときにセッションを拾う。
+          detectSessionInUrl: true,
+        },
+      }),
+    )
+  }
+  return clientPromise
+}
+
+/** 参照だけ。まだ読み込んでいなければ読み込まない。 */
+export function loadedSupabase(): Promise<SupabaseClient> | null {
+  return clientPromise
+}
+
+/**
+ * ログイン済みかもしれないか。Supabase はセッションを
+ * 'sb-<プロジェクト>-auth-token' という名前で localStorage に置く。
+ * これがあるときだけ、起動時に本体を読み込む。
+ */
+export function hasStoredSession(): boolean {
+  try {
+    const ref = new URL(SUPABASE_URL).hostname.split('.')[0]
+    if (localStorage.getItem(`sb-${ref}-auth-token`) !== null) return true
+    // メールのリンクから戻ってきた直後は、まだ保存されていない。
+    return window.location.hash.includes('access_token') || window.location.search.includes('code=')
+  } catch {
+    return false
+  }
+}
 
 /** この端末の時間帯。期限の「その土地の時刻」をサーバーが解釈するのに要る。 */
 export function localTimeZone(): string {

@@ -1,4 +1,5 @@
-import type { Category, Filter, StatusFilter } from '../types'
+import type { Category, Filter, SortMode, StatusFilter } from '../types'
+import { Icon } from './Icon'
 
 const STATUSES: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'すべて' },
@@ -13,15 +14,63 @@ type Props = {
   counts: Record<StatusFilter, number>
   categories: Category[]
   categoryCounts: Record<string, number>
+  sortMode: SortMode
+  /** 選択モードに入っているか。入っている間は絞り込みを隠す。 */
+  selecting: boolean
   onChange: (filter: Filter) => void
+  onChangeSort: (mode: SortMode) => void
+  onToggleSelecting: () => void
 }
 
-export function FilterBar({ filter, counts, categories, categoryCounts, onChange }: Props) {
+export function FilterBar({
+  filter,
+  counts,
+  categories,
+  categoryCounts,
+  sortMode,
+  selecting,
+  onChange,
+  onChangeSort,
+  onToggleSelecting,
+}: Props) {
   // 使っていないカテゴリを並べても選ぶ意味がないので、件数があるものだけ出す。
   const usedCategories = categories.filter((c) => (categoryCounts[c.id] ?? 0) > 0)
 
   return (
     <div className="filter-bar">
+      <div className="search">
+        <span className="search__icon" aria-hidden="true">
+          <Icon name="search" />
+        </span>
+        <input
+          className="search__input"
+          type="search"
+          value={filter.query}
+          onChange={(e) => onChange({ ...filter, query: e.target.value })}
+          placeholder="タスクを探す"
+          aria-label="タスクを探す"
+        />
+        {filter.query !== '' && (
+          <button
+            type="button"
+            className="icon-button search__clear"
+            onClick={() => onChange({ ...filter, query: '' })}
+            aria-label="検索をクリア"
+          >
+            <Icon name="close" />
+          </button>
+        )}
+        <button
+          type="button"
+          className={`icon-button${selecting ? ' is-selected' : ''}`}
+          onClick={onToggleSelecting}
+          aria-pressed={selecting}
+          aria-label={selecting ? '選択をやめる' : 'まとめて選ぶ'}
+        >
+          <Icon name={selecting ? 'close' : 'check-list'} />
+        </button>
+      </div>
+
       <nav className="filter-bar__row" aria-label="状態で絞り込み">
         {STATUSES.map(({ value, label }) => (
           <button
@@ -35,6 +84,17 @@ export function FilterBar({ filter, counts, categories, categoryCounts, onChange
             <span className="filter__count">{counts[value]}</span>
           </button>
         ))}
+
+        {/* 並び順はここに置く。絞り込みと同じ「一覧の見え方」の操作なので。 */}
+        <button
+          type="button"
+          className="filter filter--sort"
+          onClick={() => onChangeSort(sortMode === 'due' ? 'priority' : 'due')}
+          aria-label={`並び順: ${sortMode === 'due' ? '期限順' : '優先度順'}（押すと切り替え）`}
+        >
+          <Icon name="sort" />
+          {sortMode === 'due' ? '期限順' : '優先度順'}
+        </button>
       </nav>
 
       {usedCategories.length > 0 && (
