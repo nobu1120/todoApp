@@ -246,6 +246,7 @@ export default function App() {
           lastSyncedAt={sync.lastSyncedAt}
           pushReady={sync.pushReady}
           onSignIn={sync.signIn}
+          onSignInWithLink={sync.signInWithLink}
           onSignOut={sync.signOut}
           onSync={sync.fullSync}
         />

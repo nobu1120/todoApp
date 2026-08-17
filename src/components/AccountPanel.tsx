@@ -9,6 +9,7 @@ type Props = {
   lastSyncedAt: string | null
   pushReady: boolean
   onSignIn: (email: string) => Promise<void>
+  onSignInWithLink: (pastedLink: string) => Promise<void>
   onSignOut: () => Promise<void>
   onSync: () => Promise<void>
 }
@@ -35,6 +36,7 @@ export function AccountPanel({
   lastSyncedAt,
   pushReady,
   onSignIn,
+  onSignInWithLink,
   onSignOut,
   onSync,
 }: Props) {
@@ -43,6 +45,8 @@ export function AccountPanel({
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const [confirmingSignOut, setConfirmingSignOut] = useState(false)
+  const [pastedLink, setPastedLink] = useState('')
+  const [pasting, setPasting] = useState(false)
 
   async function handleSignIn(event: FormEvent) {
     event.preventDefault()
@@ -57,6 +61,20 @@ export function AccountPanel({
       setLocalError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function handlePastedLink(event: FormEvent) {
+    event.preventDefault()
+    if (pastedLink.trim() === '') return
+    setPasting(true)
+    setLocalError(null)
+    try {
+      await onSignInWithLink(pastedLink)
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPasting(false)
     }
   }
 
@@ -107,6 +125,29 @@ export function AccountPanel({
             </button>
           </form>
         )}
+
+        <details className="account__fallback">
+          <summary>リンクを開いても戻ってこないとき</summary>
+          <p className="detail__hint">
+            メール内のリンクを<strong>開かずに長押しでコピー</strong>して、ここに貼り付けてください。
+            リダイレクトを経由せずにログインします。
+          </p>
+          <form className="account__form" onSubmit={handlePastedLink}>
+            <input
+              type="text"
+              value={pastedLink}
+              onChange={(e) => setPastedLink(e.target.value)}
+              placeholder="https://....supabase.co/auth/v1/verify?token=..."
+              aria-label="ログインリンク"
+            />
+            <button type="submit" disabled={pasting || pastedLink.trim() === ''}>
+              {pasting ? '確認中...' : 'このリンクでログイン'}
+            </button>
+          </form>
+          <p className="detail__hint">
+            一度開いたリンクは使えません。その場合はもう一度リンクを送ってから、コピーしてください。
+          </p>
+        </details>
 
         {localError !== null && <p className="detail__hint detail__hint--warn">{localError}</p>}
       </div>

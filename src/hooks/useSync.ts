@@ -12,6 +12,7 @@ import {
   type RemoteTodo,
 } from '../lib/sync'
 import { subscribeToPush, unsubscribeFromPush } from '../lib/notify'
+import { parseAuthLink } from '../lib/authLink'
 
 export type SyncStatus = 'off' | 'syncing' | 'synced' | 'error'
 
@@ -212,7 +213,25 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
   const signIn = useCallback(async (email: string) => {
     const { error: e } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.href },
+      // 許可リストと突き合わせやすいよう、問い合わせ文字列を含まない固定の URL を渡す。
+      options: { emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` },
+    })
+    if (e) throw e
+  }, [])
+
+  /**
+   * メールのリンクを貼ってログインする。
+   * 戻り先が許可リストに無いとリダイレクトが別アプリに向いてしまうため、
+   * リダイレクトを介さずトークンだけでセッションを作る経路を用意しておく。
+   */
+  const signInWithLink = useCallback(async (pasted: string) => {
+    const parsed = parseAuthLink(pasted)
+    if (parsed === null) {
+      throw new Error('リンクからログイン用のトークンを読み取れませんでした。メール内のリンクをそのまま貼り付けてください。')
+    }
+    const { error: e } = await supabase.auth.verifyOtp({
+      token_hash: parsed.tokenHash,
+      type: parsed.type,
     })
     if (e) throw e
   }, [])
@@ -254,6 +273,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     pushReady,
     lastSyncedAt,
     signIn,
+    signInWithLink,
     signOut,
     registerPush,
     fullSync,

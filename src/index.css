@@ -438,6 +438,29 @@ textarea {
   text-decoration: underline;
 }
 
+.account__fallback {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.account__fallback summary {
+  cursor: pointer;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.account__fallback summary:hover {
+  color: var(--text);
+}
+
+.account__fallback > *:not(summary) {
+  margin-top: 10px;
+}
+
 .account__facts {
   display: flex;
   flex-direction: column;
