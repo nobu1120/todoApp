@@ -13,12 +13,12 @@ import { TaskDetail } from './components/TaskDetail'
 import { SettingsPanel } from './components/SettingsPanel'
 import { Icon } from './components/Icon'
 
-const EMPTY_MESSAGE: Record<StatusFilter, string> = {
-  all: 'まだタスクがありません。',
-  active: '未完了のタスクはありません。',
-  today: '今日が期限のタスクはありません。',
-  overdue: '期限切れのタスクはありません。',
-  done: '完了したタスクはまだありません。',
+const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
+  all: { art: '🌱', title: 'まだタスクがありません' },
+  active: { art: '🍃', title: '未完了のタスクはありません' },
+  today: { art: '☕', title: '今日が期限のタスクはありません' },
+  overdue: { art: '✨', title: '期限切れはありません' },
+  done: { art: '📭', title: '完了したタスクはまだありません' },
 }
 
 export default function App() {
@@ -133,10 +133,22 @@ export default function App() {
 
       {active.length === 0 && done.length === 0 ? (
         <div className="empty">
-          <p className="empty__title">{EMPTY_MESSAGE[filter.status]}</p>
+          <p className="empty__art" aria-hidden="true">
+            {EMPTY_MESSAGE[filter.status].art}
+          </p>
+          <p className="empty__title">{EMPTY_MESSAGE[filter.status].title}</p>
           {todos.length === 0 && (
             <p className="empty__hint">上の欄に入力して Enter を押すと追加できます。</p>
           )}
+        </div>
+      ) : active.length === 0 ? (
+        // 残りが 0 件。ただ空欄にせず、終わったことを返す。
+        <div className="empty celebrate">
+          <p className="empty__art" aria-hidden="true">
+            🎉
+          </p>
+          <p className="empty__title">ぜんぶ終わりました</p>
+          <p className="empty__hint">おつかれさま。</p>
         </div>
       ) : (
         <TodoList

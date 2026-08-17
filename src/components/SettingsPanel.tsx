@@ -59,6 +59,7 @@ export function SettingsPanel({
           <>
             <label className="switch">
               <input
+                className="check check--sm"
                 type="checkbox"
                 checked={settings.notificationsEnabled && permission === 'granted'}
                 onChange={(e) => void handleToggleNotifications(e.target.checked)}

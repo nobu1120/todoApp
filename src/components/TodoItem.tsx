@@ -28,6 +28,7 @@ export function TodoItem({ todo, categories, today, onToggle, onOpen, onRemove }
 
       <label className="todo-item__check">
         <input
+          className="check check--lg"
           type="checkbox"
           checked={todo.done}
           onChange={() => onToggle(todo.id)}

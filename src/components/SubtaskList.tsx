@@ -27,6 +27,7 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onRename, onRemove }: P
           <li key={subtask.id} className="subtask">
             <label className="subtask__check">
               <input
+                className="check check--sm"
                 type="checkbox"
                 checked={subtask.done}
                 onChange={() => onToggle(subtask.id)}
