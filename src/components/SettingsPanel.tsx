@@ -9,11 +9,16 @@ type Props = {
   permission: PermissionState
   categories: Category[]
   categoryUsage: Record<string, number>
+  /** ログイン済みかどうか。閉じている間の通知にはログインが要る。 */
+  signedIn: boolean
+  pushReady: boolean
   onUpdateSettings: (patch: Partial<Settings>) => void
   onEnableNotifications: () => Promise<PermissionState>
+  onRegisterPush: () => Promise<boolean>
   onAddCategory: (name: string, color: CategoryColor) => void
   onUpdateCategory: (id: string, patch: Partial<Omit<Category, 'id'>>) => void
   onRemoveCategory: (id: string) => void
+  children?: React.ReactNode
 }
 
 export function SettingsPanel({
@@ -21,11 +26,15 @@ export function SettingsPanel({
   permission,
   categories,
   categoryUsage,
+  signedIn,
+  pushReady,
   onUpdateSettings,
   onEnableNotifications,
+  onRegisterPush,
   onAddCategory,
   onUpdateCategory,
   onRemoveCategory,
+  children,
 }: Props) {
   const [newCategory, setNewCategory] = useState('')
   const [newColor, setNewColor] = useState<CategoryColor>('blue')
@@ -39,6 +48,8 @@ export function SettingsPanel({
     // 許可が未取得なら、ここで初めてブラウザの許可ダイアログを出す。
     const next = permission === 'granted' ? permission : await onEnableNotifications()
     onUpdateSettings({ notificationsEnabled: next === 'granted' })
+    // ログイン済みなら、この端末を閉じている間の宛先としても登録する。
+    if (next === 'granted' && signedIn) await onRegisterPush()
   }
 
   function handleAddCategory(event: FormEvent) {
@@ -50,6 +61,8 @@ export function SettingsPanel({
 
   return (
     <div className="settings">
+      {children}
+
       <section className="detail__section">
         <h3 className="detail__label">通知</h3>
 
@@ -74,10 +87,21 @@ export function SettingsPanel({
               </p>
             )}
 
-            <p className="detail__hint">
-              通知はこのページを開いている間だけ鳴ります。閉じている間に来た期限は、次に開いたときに
-              画面上部のリマインドで表示します。
-            </p>
+            {settings.notificationsEnabled && permission === 'granted' && (
+              <p className="detail__hint">
+                {!signedIn
+                  ? '閉じている間も鳴らすには、下でログインしてください。今はアプリを開いている間だけ鳴ります。'
+                  : pushReady
+                    ? 'この端末は閉じている間の通知先として登録済みです。'
+                    : 'この端末はまだ通知先として登録されていません。「この端末で受け取る」を押してください。'}
+              </p>
+            )}
+
+            {settings.notificationsEnabled && permission === 'granted' && signedIn && !pushReady && (
+              <button type="button" onClick={() => void onRegisterPush()}>
+                この端末で受け取る
+              </button>
+            )}
 
             {settings.notificationsEnabled && permission === 'granted' && (
               <label className="field">

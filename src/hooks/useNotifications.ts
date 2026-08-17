@@ -17,12 +17,14 @@ type Params = {
   settings: Settings
   today: string
   onNotified: (ids: string[]) => void
+  /** サーバーから push が届く状態なら、画面側のタイマーは止める（二重通知を防ぐ）。 */
+  paused?: boolean
 }
 
-export function useNotifications({ todos, settings, today, onNotified }: Params) {
+export function useNotifications({ todos, settings, today, onNotified, paused = false }: Params) {
   const [permission, setPermission] = useState<PermissionState>(permissionState)
 
-  const active = settings.notificationsEnabled && permission === 'granted'
+  const active = settings.notificationsEnabled && permission === 'granted' && !paused
 
   // タイマーを張り直さずに最新の値を読むための箱。
   // これらを依存配列に入れると、タスクを触るたびにタイマーが作り直される。

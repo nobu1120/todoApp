@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import type { Category, CategoryColor, Settings, Todo } from '../types'
+import type { Category, CategoryColor, Settings, Todo, TodoStore } from '../types'
 import {
   createSubtask,
   createTodo,
@@ -54,6 +54,9 @@ export function useTodos() {
       removeCategory: (id: string) => dispatch({ type: 'category:remove', id, now: now() }),
 
       updateSettings: (patch: Partial<Settings>) => dispatch({ type: 'settings:update', patch }),
+
+      /** 同期で作った状態をそのまま採用する。 */
+      replaceStore: (next: TodoStore) => dispatch({ type: 'sync:replace', store: next }),
     }),
     [],
   )
@@ -67,7 +70,7 @@ export function useTodos() {
   const remove = useCallback(
     (id: string) => {
       const target = store.todos.find((todo) => todo.id === id)
-      dispatch({ type: 'remove', id })
+      dispatch({ type: 'remove', id, now: now() })
       if (!target) return
 
       if (undoTimer.current !== null) clearTimeout(undoTimer.current)

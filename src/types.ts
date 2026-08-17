@@ -53,11 +53,22 @@ export type Settings = {
   defaultNotifyTime: string
 }
 
+/**
+ * 削除の墓標。物理削除だけだと、別の端末から同期したときに消したものが復活する。
+ * 「いつ消したか」を残しておき、同期時に相手へ伝えるために使う。
+ */
+export type Tombstone = {
+  id: string
+  kind: 'todo' | 'category'
+  deletedAt: string
+}
+
 export type TodoStore = {
-  schemaVersion: 2
+  schemaVersion: 3
   todos: Todo[]
   categories: Category[]
   settings: Settings
+  tombstones: Tombstone[]
 }
 
 export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'done'

@@ -45,6 +45,69 @@ export async function ensureServiceWorker(): Promise<ServiceWorkerRegistration |
   }
 }
 
+/**
+ * base64url の VAPID 公開鍵を、PushManager が要求する形に直す。
+ * ArrayBuffer を明示して確保する。Uint8Array の型は SharedArrayBuffer も
+ * 取りうるため、そのままでは applicationServerKey に渡せない。
+ */
+function urlBase64ToBytes(base64: string): ArrayBuffer {
+  const padding = '='.repeat((4 - (base64.length % 4)) % 4)
+  const normalized = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(normalized)
+  const buffer = new ArrayBuffer(raw.length)
+  const view = new Uint8Array(buffer)
+  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i)
+  return buffer
+}
+
+export type PushKeys = { endpoint: string; p256dh: string; auth: string }
+
+function toKeys(subscription: PushSubscription): PushKeys | null {
+  const json = subscription.toJSON()
+  const p256dh = json.keys?.p256dh
+  const auth = json.keys?.auth
+  if (json.endpoint === undefined || p256dh === undefined || auth === undefined) return null
+  return { endpoint: json.endpoint, p256dh, auth }
+}
+
+/**
+ * この端末を push の宛先として登録する。
+ * 閉じている間に鳴らすにはこれが要る（開いている間だけなら不要）。
+ */
+export async function subscribeToPush(vapidPublicKey: string): Promise<PushKeys | null> {
+  if (permissionState() !== 'granted') return null
+  const reg = await ensureServiceWorker()
+  if (reg === null) return null
+
+  try {
+    const existing = await reg.pushManager.getSubscription()
+    if (existing !== null) return toKeys(existing)
+
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToBytes(vapidPublicKey),
+    })
+    return toKeys(subscription)
+  } catch {
+    // push に対応していない環境（iOS のブラウザタブなど）ではここに来る。
+    return null
+  }
+}
+
+export async function unsubscribeFromPush(): Promise<string | null> {
+  const reg = await ensureServiceWorker()
+  if (reg === null) return null
+  try {
+    const subscription = await reg.pushManager.getSubscription()
+    if (subscription === null) return null
+    const endpoint = subscription.endpoint
+    await subscription.unsubscribe()
+    return endpoint
+  } catch {
+    return null
+  }
+}
+
 export async function showTodoNotification(todo: Todo, today: string): Promise<void> {
   if (permissionState() !== 'granted') return
 

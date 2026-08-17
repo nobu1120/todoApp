@@ -6,12 +6,16 @@ import type {
   Subtask,
   Todo,
   TodoStore,
+  Tombstone,
 } from '../types'
 import { HM_RE, ISO_DATE_RE } from './date'
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 
 const STORAGE_KEY = 'todoApp.store'
-const CURRENT_VERSION = 2
+const CURRENT_VERSION = 3
+
+/** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
+const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 export const DEFAULT_SETTINGS: Settings = {
   // 既定では OS 通知を使わない。許可ダイアログは設定から明示的に有効にしたときだけ出す。
@@ -24,6 +28,7 @@ export const emptyStore: TodoStore = {
   todos: [],
   categories: DEFAULT_CATEGORIES,
   settings: DEFAULT_SETTINGS,
+  tombstones: [],
 }
 
 const PRIORITIES: Priority[] = ['high', 'normal', 'low']
@@ -106,12 +111,25 @@ function parseSettings(value: unknown): Settings {
   }
 }
 
+function parseTombstone(value: unknown, now: number): Tombstone | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Record<string, unknown>
+  if (typeof raw.id !== 'string' || raw.id === '') return null
+  if (raw.kind !== 'todo' && raw.kind !== 'category') return null
+  if (typeof raw.deletedAt !== 'string') return null
+  const at = Date.parse(raw.deletedAt)
+  // 日付として読めないもの、古すぎるものは捨てる。
+  if (Number.isNaN(at) || now - at > TOMBSTONE_TTL_MS) return null
+  return { id: raw.id, kind: raw.kind, deletedAt: raw.deletedAt }
+}
+
 /**
  * 旧スキーマを現行スキーマへ引き上げる。
  * v1（todos だけ / icon・カテゴリ・サブタスク無し）からの移行は、
  * 足りないフィールドを既定値で埋め、カテゴリと設定を新設することで行う。
+ * v2 → v3 は墓標の配列を足すだけ。
  */
-export function migrate(value: unknown): TodoStore {
+export function migrate(value: unknown, now: number = Date.now()): TodoStore {
   if (typeof value !== 'object' || value === null) return emptyStore
   const raw = value as Record<string, unknown>
   if (!Array.isArray(raw.todos)) return emptyStore
@@ -133,6 +151,11 @@ export function migrate(value: unknown): TodoStore {
     todos,
     categories,
     settings: parseSettings(raw.settings),
+    tombstones: Array.isArray(raw.tombstones)
+      ? raw.tombstones
+          .map((t) => parseTombstone(t, now))
+          .filter((t): t is Tombstone => t !== null)
+      : [],
   }
 }
 

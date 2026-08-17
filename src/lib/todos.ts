@@ -6,6 +6,7 @@ import type {
   Subtask,
   Todo,
   TodoStore,
+  Tombstone,
 } from '../types'
 import { isOverdue, parseISODate, todayISO } from './date'
 
@@ -56,7 +57,9 @@ export type Action =
   | { type: 'add'; todo: Todo }
   | { type: 'update'; id: string; patch: TodoPatch; now: string }
   | { type: 'toggle'; id: string; now: string }
-  | { type: 'remove'; id: string }
+  | { type: 'remove'; id: string; now: string }
+  /** 同期で受け取った内容をそのまま反映する。updatedAt は触らない。 */
+  | { type: 'sync:replace'; store: TodoStore }
   /** 通知済みとして記録し、同じタスクで二度鳴らないようにする。 */
   | { type: 'markNotified'; ids: string[]; now: string }
   | { type: 'subtask:add'; id: string; subtask: Subtask; now: string }
@@ -93,10 +96,23 @@ function mapSubtask(
   }))
 }
 
+/** 墓標を積む。同じ id のものは最新で置き換える。 */
+function withTombstone(store: TodoStore, tombstone: Tombstone): Tombstone[] {
+  return [...store.tombstones.filter((t) => t.id !== tombstone.id), tombstone]
+}
+
 export function storeReducer(store: TodoStore, action: Action): TodoStore {
   switch (action.type) {
+    case 'sync:replace':
+      return action.store
+
     case 'add':
-      return { ...store, todos: [...store.todos, action.todo] }
+      return {
+        ...store,
+        todos: [...store.todos, action.todo],
+        // 復活させたのだから、消した記録は取り下げる。
+        tombstones: store.tombstones.filter((t) => t.id !== action.todo.id),
+      }
 
     case 'update':
       return mapTodo(store, action.id, (todo) => {
@@ -120,7 +136,16 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
       })
 
     case 'remove':
-      return { ...store, todos: store.todos.filter((todo) => todo.id !== action.id) }
+      if (!store.todos.some((todo) => todo.id === action.id)) return store
+      return {
+        ...store,
+        todos: store.todos.filter((todo) => todo.id !== action.id),
+        tombstones: withTombstone(store, {
+          id: action.id,
+          kind: 'todo',
+          deletedAt: action.now,
+        }),
+      }
 
     case 'markNotified': {
       const ids = new Set(action.ids)
@@ -180,6 +205,11 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
             ? { ...todo, categoryId: null, updatedAt: action.now }
             : todo,
         ),
+        tombstones: withTombstone(store, {
+          id: action.id,
+          kind: 'category',
+          deletedAt: action.now,
+        }),
       }
 
     case 'settings:update':

@@ -7,9 +7,42 @@
 | 項目 | 決定 | 理由 |
 |---|---|---|
 | 形態 | Web アプリ（ブラウザ） | PC でもスマホでも同じものが使える |
-| データ保存 | ブラウザ内（localStorage）のみ | 自分専用なので認証もサーバーも要らない |
+| データ保存 | localStorage を主、Supabase を同期先 | ログインしなければ従来どおり端末内で完結する |
 | スタック | Vite + React + TypeScript | 静的 SPA として最軽量 |
 | 公開 | GitHub Pages（`gh-pages` ブランチ） | ブックマークからすぐ開ける |
+| バックエンド | Supabase（`quiz` プロジェクトに相乗り） | 閉じている間の通知に push サーバーが要る |
+
+## サーバー構成
+
+閉じている間に通知を鳴らすため、Supabase を後から足した。
+**ログインしない限りサーバーとは一切通信しない**設計で、ローカル優先は崩していない。
+
+無料枠が 2 プロジェクトまでで埋まっていたため、既存の `quiz` プロジェクトに同居している。
+テーブル名が衝突しないよう、すべて `todo_` で始める（`quiz` 側に `subscriptions` が既にある）。
+
+| もの | 役割 |
+|---|---|
+| `todo_items` / `todo_categories` / `todo_settings` | 同期するデータ。RLS で自分の行だけ |
+| `todo_push_subscriptions` | 端末ごとの通知の宛先 |
+| `todo_config` | VAPID 鍵と cron の合言葉。**RLS 有効・ポリシー無し**でクライアントからは読めない |
+| `todo_due_reminders()` | 通知すべきタスクを返す。サービスロール専用 |
+| Edge Function `todo-send-reminders` | Web Push を送る |
+| pg_cron（毎分） | Edge Function を叩く。合言葉はヘッダで渡す |
+
+### 同期の考え方
+
+利用者は 1 人なので、衝突は **更新時刻が新しいほうを採る**（last-write-wins）で解決する。
+
+削除は**墓標**（`tombstones` / `deleted_at`）で伝える。物理削除だけだと、
+古い端末から同期したときに消したものが復活してしまう。墓標は 30 日で掃除する。
+
+突き合わせのロジックは `src/lib/sync.ts` の純粋関数にまとめ、テストで固定してある。
+
+### 鍵の扱い
+
+- **anon キー**はリポジトリに置いてよい（公開前提の鍵で、権限は RLS が決める）
+- **service_role キー**はリポジトリに置かない。Edge Function に自動注入されるものを使う
+- **VAPID 秘密鍵**は `todo_config` にだけ置く。フロントには公開鍵しか無い
 
 ## 実装済みの機能
 
@@ -20,7 +53,8 @@
 
 ### カテゴリ
 - 1 タスクに **1 つだけ**（排他）。未分類も可。
-- 色を持ち、一覧では**左端 3px の色帯**で示す。
+- 色を持つ。ただし現行デザイン（白と蛍光）では**一覧を色分けしない**ため、
+  色が出るのはフィルタのドットと設定画面だけ。
 - 初期値は 仕事 / 私用 / 家事 / 学習。設定から追加・改名・色変更・削除ができる。
 - カテゴリを削除すると、参照していたタスクは未分類に落ちる（孤児を残さない）。
 
@@ -77,7 +111,7 @@ iOS で通知を使うには、この「ホーム画面に追加」が前提条�
 
 ---
 
-## データモデル（schemaVersion: 2）
+## データモデル（schemaVersion: 3）
 
 ```ts
 type Todo = {
@@ -99,12 +133,23 @@ type Todo = {
 
 type Category = { id: string; name: string; color: CategoryColor }
 type Settings = { notificationsEnabled: boolean; defaultNotifyTime: string }
-type TodoStore = { schemaVersion: 2; todos: Todo[]; categories: Category[]; settings: Settings }
+
+/** 削除を端末間で伝えるための墓標。物理削除だけだと同期で復活する。 */
+type Tombstone = { id: string; kind: 'todo' | 'category'; deletedAt: string }
+
+type TodoStore = {
+  schemaVersion: 3
+  todos: Todo[]
+  categories: Category[]
+  settings: Settings
+  tombstones: Tombstone[]
+}
 ```
 
-### v1 からの移行
-`migrate()` が旧データを読み、足りないフィールドを既定値で埋め、既定カテゴリと設定を新設する。
-`notes` など v1 から引き継げるものはそのまま残す。移行はテストで固定してある。
+### 移行
+`migrate()` が旧データを読み、足りないフィールドを既定値で埋める。
+v1 → v3 は既定カテゴリと設定を新設し、v2 → v3 は墓標の配列を足すだけ。
+`notes` など引き継げるものはそのまま残す。移行はテストで固定してある。
 
 ### 日付の扱い
 時刻なしの日付は `'YYYY-MM-DD'`、時刻は `'HH:MM'` で持つ。
@@ -178,9 +223,9 @@ localStorage は外から書き換えられうるので、読み込み時に 1 �
 
 ## 非機能・割り切り
 
-- 認証なし、サーバーなし。データはそのブラウザにのみ存在する。
-- 複数端末での同期はしない。将来やるなら `src/lib/storage.ts` を差し替える。
-- 外部依存は React / TypeScript / Vite / Vitest のみ。日付ライブラリも UI ライブラリも入れない。
+- **ログインしなければサーバーとは一切通信しない。** その場合データはそのブラウザにのみ存在する。
+- ログインすると Supabase と同期し、閉じている間の通知も届く。内容がサーバーに保存される。
+- 外部依存は React / TypeScript / Vite / Vitest / supabase-js のみ。日付ライブラリも UI ライブラリも入れない。
 - ライト / ダークは OS 設定に追従。`prefers-reduced-motion` も尊重する。
 - テストは純粋ロジック（日付・reducer・進捗・通知判定・絞り込み・並び替え・データ復元）に絞る。
 
@@ -188,13 +233,14 @@ localStorage は外から書き換えられうるので、読み込み時に 1 �
 
 - **ロジックと React を分離** — reducer・絞り込み・並び替え・進捗・通知判定はすべて `src/lib/todos.ts` の純粋関数。React 側は呼ぶだけ。
 - **保存層を 1 箇所に** — localStorage に触るのは `src/lib/storage.ts` だけ。
+  サーバーとの突き合わせは `src/lib/sync.ts` の純粋関数に閉じ込め、通信は `src/hooks/useSync.ts` だけが行う。
 - **状態は `useReducer` 一本** — ストア全体（todos / categories / settings）を 1 つの reducer で扱い、保存も 1 箇所で済ませる。
 - **CSS の基本スタイルは `:where()` で詳細度 0** — 素の複合セレクタ（`input:not([type])` = 0,1,1）だと単一クラスの上書き（0,1,0）が効かなくなるため。
 
 ## この先の候補
 
 1. **優先度** — `priority` フィールドは用意済み。並び替えの切り替え UI とセットで。
-2. **繰り返しタスク** — 毎週/毎月。`schemaVersion: 3` への移行が要る。
+2. **繰り返しタスク** — 毎週/毎月。`schemaVersion: 4` への移行が要る。
 3. **JSON エクスポート / インポート** — 端末が変わるとデータが消えるので、バックアップ手段。
-4. **PWA 化** — ホーム画面追加とオフライン対応。
+4. **オフライン対応** — ホーム画面追加は対応済み。Service Worker はまだキャッシュをしないので、圏外では開けない。
 5. **本物のプッシュ通知** — サーバーが要る。「ブラウザ完結」を捨てるかどうかの判断から。

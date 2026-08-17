@@ -4,6 +4,8 @@ import { countActive, filterTodos, matchesStatus, needsAttention, sortTodos } fr
 import { useTodos } from './hooks/useTodos'
 import { useToday } from './hooks/useToday'
 import { useNotifications } from './hooks/useNotifications'
+import { useSync } from './hooks/useSync'
+import { AccountPanel } from './components/AccountPanel'
 import { TodoForm } from './components/TodoForm'
 import { FilterBar } from './components/FilterBar'
 import { TodoList } from './components/TodoList'
@@ -32,11 +34,16 @@ export default function App() {
   const [showDone, setShowDone] = useState(false)
   const today = useToday()
 
+  const sync = useSync(store, todo.replaceStore)
+
   const { permission, enable } = useNotifications({
     todos,
     settings,
     today,
     onNotified: todo.markNotified,
+    // 閉じている間ぶんはサーバーが送る。二重に鳴らさないよう、
+    // この端末が宛先として登録できている間は画面側のタイマーを止める。
+    paused: sync.pushReady,
   })
 
   const visible = useMemo(() => sortTodos(filterTodos(todos, filter, today)), [todos, filter, today])
@@ -211,12 +218,24 @@ export default function App() {
           permission={permission}
           categories={categories}
           categoryUsage={categoryUsage}
+          signedIn={sync.session !== null}
+          pushReady={sync.pushReady}
           onUpdateSettings={todo.updateSettings}
           onEnableNotifications={enable}
+          onRegisterPush={sync.registerPush}
           onAddCategory={todo.addCategory}
           onUpdateCategory={todo.updateCategory}
           onRemoveCategory={todo.removeCategory}
-        />
+        >
+          <AccountPanel
+            email={sync.email}
+            status={sync.status}
+            error={sync.error}
+            onSignIn={sync.signIn}
+            onSignOut={sync.signOut}
+            onSync={sync.fullSync}
+          />
+        </SettingsPanel>
       </Drawer>
 
       {todo.lastRemoved !== null && (

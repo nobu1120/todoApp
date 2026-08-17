@@ -178,14 +178,14 @@ describe('storeReducer: タスク', () => {
   })
 
   it('削除し、同じタスクを add で元に戻せる', () => {
-    const removed = run(store([a, b]), { type: 'remove', id: 'a' })
+    const removed = run(store([a, b]), { type: 'remove', id: 'a', now })
     expect(removed.todos.map((t) => t.id)).toEqual(['b'])
     expect(run(removed, { type: 'add', todo: a }).todos.map((t) => t.id)).toEqual(['b', 'a'])
   })
 
   it('存在しない id は何もしない', () => {
     const s = store([a])
-    expect(run(s, { type: 'remove', id: 'zzz' }).todos).toEqual([a])
+    expect(run(s, { type: 'remove', id: 'zzz', now }).todos).toEqual([a])
     expect(run(s, { type: 'toggle', id: 'zzz', now })).toBe(s)
   })
 
@@ -411,7 +411,7 @@ describe('countActive', () => {
 })
 
 describe('migrate', () => {
-  it('v1 のデータを v2 に引き上げる（既定カテゴリと設定を新設）', () => {
+  it('v1 のデータを v3 に引き上げる（既定カテゴリと設定を新設）', () => {
     const v1 = {
       schemaVersion: 1,
       todos: [
@@ -430,7 +430,8 @@ describe('migrate', () => {
       ],
     }
     const s = migrate(v1)
-    expect(s.schemaVersion).toBe(2)
+    expect(s.schemaVersion).toBe(3)
+    expect(s.tombstones).toEqual([])
     expect(s.categories).toEqual(DEFAULT_CATEGORIES)
     expect(s.settings).toEqual(DEFAULT_SETTINGS)
     expect(s.todos[0]).toMatchObject({
@@ -507,6 +508,39 @@ describe('migrate', () => {
       todos: [{ id: 'a', title: 'x', subtasks: [{ id: 's1', title: 'ok', done: true }, {}, null] }],
     })
     expect(s.todos[0].subtasks).toEqual([{ id: 's1', title: 'ok', done: true }])
+  })
+
+  it('v2 のデータは墓標の配列を足すだけで引き上がる', () => {
+    const v2 = {
+      schemaVersion: 2,
+      todos: [{ id: 'a', title: 'x', icon: '📄', subtasks: [] }],
+      categories: [{ id: 'c1', name: '仕事', color: 'blue' }],
+      settings: { notificationsEnabled: true, defaultNotifyTime: '08:00' },
+    }
+    const s = migrate(v2)
+    expect(s.schemaVersion).toBe(3)
+    expect(s.tombstones).toEqual([])
+    expect(s.todos[0]).toMatchObject({ id: 'a', icon: '📄' })
+    expect(s.categories).toEqual([{ id: 'c1', name: '仕事', color: 'blue' }])
+    expect(s.settings.defaultNotifyTime).toBe('08:00')
+  })
+
+  it('墓標を読み込み、古すぎるものと壊れたものは捨てる', () => {
+    const now = Date.parse('2026-08-17T00:00:00.000Z')
+    const s = migrate(
+      {
+        todos: [],
+        tombstones: [
+          { id: 'recent', kind: 'todo', deletedAt: '2026-08-16T00:00:00.000Z' },
+          { id: 'old', kind: 'todo', deletedAt: '2026-01-01T00:00:00.000Z' },
+          { id: 'bad-kind', kind: 'なにか', deletedAt: '2026-08-16T00:00:00.000Z' },
+          { id: 'bad-date', kind: 'todo', deletedAt: 'いつか' },
+          null,
+        ],
+      },
+      now,
+    )
+    expect(s.tombstones.map((t) => t.id)).toEqual(['recent'])
   })
 
   it('形が違う入力は空ストアにする', () => {
