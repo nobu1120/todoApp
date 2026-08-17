@@ -2,8 +2,8 @@
 
 自分ひとりで使うための、シンプルな Todo アプリ。
 
-- ブラウザだけで動く（サーバー・ログイン不要）
-- データはそのブラウザの localStorage に保存される
+- ブラウザだけで動く。**ログインは任意**で、しなければ端末内だけで完結する
+- ログインすると複数端末で同期し、閉じている間も通知が届く
 - 期限 / カテゴリ / アイコン / サブタスク進捗 / メモ / 通知
 
 詳しい仕様は [`docs/spec.md`](docs/spec.md) を参照。
@@ -21,12 +21,15 @@
 | 削除 | 詳細画面の「このタスクを削除」（PC なら行にホバーして ×）。6 秒以内なら取り消せる |
 | 絞り込み | 状態（すべて / 未完了 / 今日 / 期限切れ / 完了）とカテゴリの AND |
 | 通知・カテゴリ管理 | 右上の歯車 |
+| ログイン・ログアウト | 右上のアカウント表示 |
 
 並び順は「未完了が先 → 期限が近い順（期限なしは末尾） → 作成が新しい順」で固定。
 
 ### 通知と同期
 
-右上の歯車から設定します。
+通知は右上の歯車、ログインは右上のアカウント表示から設定します。
+**今どのアカウントでログインしているかは、ヘッダーに常時出ます**
+（狭い画面では頭文字のみ。押すとメールアドレス全体と同期状態が見られます）。
 
 | したいこと | 必要なこと |
 |---|---|
@@ -83,9 +86,9 @@ npm run preview  # 本番ビルドの確認 (http://localhost:4173/todoApp/)
 GitHub Pages を **private リポジトリから公開するには GitHub Pro 以上**が必要。
 Free プランなら Settings → General → Danger Zone → Change visibility → Public。
 
-> 公開して困るものは無い。タスクは端末のブラウザ内（localStorage）にしか保存されず、
-> リポジトリにもサーバーにも一切送られないため、ページを見られてもタスクの中身は漏れない。
-> 逆に、別の端末やブラウザからは別のデータになる（同期はしない）。
+> 公開するのはアプリのコードだけで、タスクの中身は入っていない。
+> リポジトリに置く Supabase の anon キーは公開前提の鍵で、実際の権限は RLS が決めるため、
+> 他人がこのページからあなたのタスクを読むことはできない。
 
 Pro を使っている場合はこの手順は不要。
 
@@ -130,8 +133,6 @@ git worktree remove /tmp/ghp
 3. Settings → Pages → Source を **GitHub Actions** に変更
 
 以降は `main` に push するたび、テスト → ビルド → デプロイが自動で走る。
-
-以降は `main` に push するたび、テスト → ビルド → デプロイが自動で走る。
 Actions タブから手動実行（Run workflow）もできる。
 
 ## 構成
@@ -144,20 +145,26 @@ src/
 │  ├─ todos.ts           reducer / 絞り込み / 並び替え / 進捗 / 通知判定（純粋関数）
 │  ├─ categories.ts      既定カテゴリと色パレット
 │  ├─ emoji.ts           アイコン用の絵文字セット
-│  ├─ notify.ts          Notification API のラッパ
+│  ├─ notify.ts          通知と push 購読（Service Worker 経由）
 │  ├─ storage.ts         localStorage への読み書き・検証・スキーマ移行
-│  └─ todos.test.ts      テスト
+│  ├─ supabase.ts        接続先と公開鍵
+│  ├─ sync.ts            サーバーとの突き合わせ（純粋関数）
+│  ├─ todos.test.ts      テスト
+│  └─ sync.test.ts       同期のテスト
 ├─ hooks/
 │  ├─ useTodos.ts        状態管理と自動保存、削除の取り消し
 │  ├─ useToday.ts        「今日」の日付（日付またぎに追従）
-│  └─ useNotifications.ts 許可の管理と期限の定期チェック
+│  ├─ useNotifications.ts 許可の管理と期限の定期チェック
+│  └─ useSync.ts         ログイン・同期・push 購読（通信するのはここだけ）
 └─ components/
    ├─ Icon.tsx           UI 用の SVG アイコン
-   ├─ Drawer.tsx         詳細・設定の共通パネル
+   ├─ Drawer.tsx         詳細・設定・アカウントの共通パネル
    ├─ TodoForm / FilterBar / TodoList / TodoItem
    ├─ TaskDetail / EmojiPicker / SubtaskList
+   ├─ AccountButton / AccountPanel
    └─ ReminderBanner / SettingsPanel
 ```
 
-ロジックは `lib/` の純粋関数に寄せ、localStorage に触るのは `lib/storage.ts` だけにしている。
+ロジックは `lib/` の純粋関数に寄せ、localStorage に触るのは `lib/storage.ts` だけ、
+サーバーと通信するのは `hooks/useSync.ts` だけにしている。
 UI のアイコンは SVG（`Icon.tsx`）、タスクに付けるアイコンはユーザーが選ぶ絵文字、と役割を分けている。

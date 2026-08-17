@@ -18,7 +18,6 @@ type Props = {
   onAddCategory: (name: string, color: CategoryColor) => void
   onUpdateCategory: (id: string, patch: Partial<Omit<Category, 'id'>>) => void
   onRemoveCategory: (id: string) => void
-  children?: React.ReactNode
 }
 
 export function SettingsPanel({
@@ -34,7 +33,6 @@ export function SettingsPanel({
   onAddCategory,
   onUpdateCategory,
   onRemoveCategory,
-  children,
 }: Props) {
   const [newCategory, setNewCategory] = useState('')
   const [newColor, setNewColor] = useState<CategoryColor>('blue')
@@ -61,8 +59,6 @@ export function SettingsPanel({
 
   return (
     <div className="settings">
-      {children}
-
       <section className="detail__section">
         <h3 className="detail__label">通知</h3>
 
@@ -90,7 +86,7 @@ export function SettingsPanel({
             {settings.notificationsEnabled && permission === 'granted' && (
               <p className="detail__hint">
                 {!signedIn
-                  ? '閉じている間も鳴らすには、下でログインしてください。今はアプリを開いている間だけ鳴ります。'
+                  ? '閉じている間も鳴らすには、右上のログインからサインインしてください。今はアプリを開いている間だけ鳴ります。'
                   : pushReady
                     ? 'この端末は閉じている間の通知先として登録済みです。'
                     : 'この端末はまだ通知先として登録されていません。「この端末で受け取る」を押してください。'}

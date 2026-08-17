@@ -6,6 +6,7 @@ import { useToday } from './hooks/useToday'
 import { useNotifications } from './hooks/useNotifications'
 import { useSync } from './hooks/useSync'
 import { AccountPanel } from './components/AccountPanel'
+import { AccountButton } from './components/AccountButton'
 import { TodoForm } from './components/TodoForm'
 import { FilterBar } from './components/FilterBar'
 import { TodoList } from './components/TodoList'
@@ -31,6 +32,7 @@ export default function App() {
   const [filter, setFilter] = useState<Filter>({ status: 'all', categoryId: null })
   const [openId, setOpenId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [showDone, setShowDone] = useState(false)
   const today = useToday()
 
@@ -111,14 +113,21 @@ export default function App() {
             )}
           </h1>
         </div>
-        <button
-          type="button"
-          className="icon-button icon-button--lg"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="設定"
-        >
-          <Icon name="settings" />
-        </button>
+        <div className="app__actions">
+          <AccountButton
+            email={sync.email}
+            status={sync.status}
+            onClick={() => setAccountOpen(true)}
+          />
+          <button
+            type="button"
+            className="icon-button icon-button--lg"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="設定"
+          >
+            <Icon name="settings" />
+          </button>
+        </div>
       </header>
 
       <ReminderBanner overdue={attention.overdue} dueToday={attention.today} onJump={jump} />
@@ -226,16 +235,20 @@ export default function App() {
           onAddCategory={todo.addCategory}
           onUpdateCategory={todo.updateCategory}
           onRemoveCategory={todo.removeCategory}
-        >
-          <AccountPanel
-            email={sync.email}
-            status={sync.status}
-            error={sync.error}
-            onSignIn={sync.signIn}
-            onSignOut={sync.signOut}
-            onSync={sync.fullSync}
-          />
-        </SettingsPanel>
+        />
+      </Drawer>
+
+      <Drawer open={accountOpen} title="アカウント" onClose={() => setAccountOpen(false)}>
+        <AccountPanel
+          email={sync.email}
+          status={sync.status}
+          error={sync.error}
+          lastSyncedAt={sync.lastSyncedAt}
+          pushReady={sync.pushReady}
+          onSignIn={sync.signIn}
+          onSignOut={sync.signOut}
+          onSync={sync.fullSync}
+        />
       </Drawer>
 
       {todo.lastRemoved !== null && (

@@ -24,6 +24,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
   const [status, setStatus] = useState<SyncStatus>('off')
   const [error, setError] = useState<string | null>(null)
   const [pushReady, setPushReady] = useState(false)
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
 
   // 送信済みの水位。ここより新しい行だけを送るので、毎回全件送らずに済む。
   const pushedUpTo = useRef(EPOCH)
@@ -99,6 +100,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
       // 取り込んだぶんを送り返さないよう、先に水位を上げてから反映する。
       pushedUpTo.current = now
       replaceStore(result.store)
+      setLastSyncedAt(new Date().toISOString())
       setStatus('synced')
     } catch (err) {
       setStatus('error')
@@ -139,6 +141,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
           .in('id', deadCategories)
       }
       pushedUpTo.current = now
+      setLastSyncedAt(new Date().toISOString())
       setStatus('synced')
       setError(null)
     } catch (err) {
@@ -151,6 +154,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
   useEffect(() => {
     if (userId === null) {
       setStatus('off')
+      setLastSyncedAt(null)
       pushedUpTo.current = EPOCH
       return
     }
@@ -220,6 +224,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     }
     await supabase.auth.signOut()
     setPushReady(false)
+    setLastSyncedAt(null)
   }, [])
 
   /** この端末を push の宛先として登録する。ログイン済みでないと意味がない。 */
@@ -247,6 +252,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     status,
     error,
     pushReady,
+    lastSyncedAt,
     signIn,
     signOut,
     registerPush,

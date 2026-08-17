@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import type { SyncStatus } from '../hooks/useSync'
+import { Icon } from './Icon'
 
 type Props = {
   email: string | null
   status: SyncStatus
   error: string | null
+  lastSyncedAt: string | null
+  pushReady: boolean
   onSignIn: (email: string) => Promise<void>
   onSignOut: () => Promise<void>
   onSync: () => Promise<void>
@@ -17,20 +20,39 @@ const STATUS_LABEL: Record<SyncStatus, string> = {
   error: '同期に失敗しました',
 }
 
-export function AccountPanel({ email, status, error, onSignIn, onSignOut, onSync }: Props) {
+function formatSyncedAt(iso: string): string {
+  const at = new Date(iso)
+  const diff = Date.now() - at.getTime()
+  if (diff < 60_000) return 'たった今'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分前`
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+}
+
+export function AccountPanel({
+  email,
+  status,
+  error,
+  lastSyncedAt,
+  pushReady,
+  onSignIn,
+  onSignOut,
+  onSync,
+}: Props) {
   const [input, setInput] = useState('')
-  const [sent, setSent] = useState(false)
+  const [sentTo, setSentTo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
 
   async function handleSignIn(event: FormEvent) {
     event.preventDefault()
-    if (input.trim() === '') return
+    const address = input.trim()
+    if (address === '') return
     setBusy(true)
     setLocalError(null)
     try {
-      await onSignIn(input.trim())
-      setSent(true)
+      await onSignIn(address)
+      setSentTo(address)
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -38,22 +60,40 @@ export function AccountPanel({ email, status, error, onSignIn, onSignOut, onSync
     }
   }
 
+  // --- 未ログイン ---
   if (email === null) {
     return (
-      <section className="detail__section">
-        <h3 className="detail__label">アカウント</h3>
+      <div className="account">
+        <div className="account__hero">
+          <span className="account__avatar account__avatar--empty" aria-hidden="true">
+            <Icon name="user" />
+          </span>
+          <div>
+            <p className="account__title">ログインしていません</p>
+            <p className="account__sub">この端末の中だけで動いています</p>
+          </div>
+        </div>
+
         <p className="detail__hint">
           ログインすると、複数の端末で同じリストを見られます。
           閉じている間の通知もログインが前提です。
-          ログインしなくても、この端末の中だけで今までどおり使えます。
+          ログインしなくても、今までどおりこの端末だけで使えます。
         </p>
 
-        {sent ? (
-          <p className="detail__hint detail__hint--warn">
-            {input} にログイン用のリンクを送りました。メールのリンクを開いてください。
-          </p>
+        {sentTo !== null ? (
+          <div className="account__sent">
+            <p>
+              <strong>{sentTo}</strong> にログイン用のリンクを送りました。
+            </p>
+            <p className="detail__hint">
+              メールが届かないときは、迷惑メールを確認してください。
+            </p>
+            <button type="button" className="ghost" onClick={() => setSentTo(null)}>
+              別のアドレスを使う
+            </button>
+          </div>
         ) : (
-          <form className="category-add" onSubmit={handleSignIn}>
+          <form className="account__form" onSubmit={handleSignIn}>
             <input
               type="email"
               value={input}
@@ -63,35 +103,77 @@ export function AccountPanel({ email, status, error, onSignIn, onSignOut, onSync
               autoComplete="email"
             />
             <button type="submit" disabled={busy || input.trim() === ''}>
-              {busy ? '送信中' : 'リンクを送る'}
+              {busy ? '送信中...' : 'ログイン用リンクを送る'}
             </button>
           </form>
         )}
 
         {localError !== null && <p className="detail__hint detail__hint--warn">{localError}</p>}
-      </section>
+      </div>
     )
   }
 
+  // --- ログイン済み ---
+  const name = email.split('@')[0]
   return (
-    <section className="detail__section">
-      <h3 className="detail__label">アカウント</h3>
-      <p className="detail__hint">
-        <strong>{email}</strong> でログイン中 — {STATUS_LABEL[status]}
-      </p>
+    <div className="account">
+      <div className="account__hero">
+        <span className="account__avatar" aria-hidden="true">
+          {(name[0] ?? '?').toUpperCase()}
+        </span>
+        <div className="account__id">
+          <p className="account__title">{email}</p>
+          <p className="account__sub">
+            {STATUS_LABEL[status]}
+            {status === 'synced' && lastSyncedAt !== null && ` · ${formatSyncedAt(lastSyncedAt)}`}
+          </p>
+        </div>
+      </div>
+
       {error !== null && <p className="detail__hint detail__hint--warn">{error}</p>}
-      <div className="detail__due">
+
+      <dl className="account__facts">
+        <div>
+          <dt>端末間の同期</dt>
+          <dd>有効</dd>
+        </div>
+        <div>
+          <dt>閉じている間の通知</dt>
+          <dd>{pushReady ? 'この端末で受け取る' : '未設定（設定 → 通知）'}</dd>
+        </div>
+      </dl>
+
+      <div className="account__actions">
         <button type="button" onClick={() => void onSync()} disabled={status === 'syncing'}>
           今すぐ同期
         </button>
-        <button type="button" className="ghost" onClick={() => void onSignOut()}>
-          ログアウト
-        </button>
+        {confirmingSignOut ? (
+          <>
+            <button
+              type="button"
+              className="danger-button danger-button--small"
+              onClick={() => {
+                setConfirmingSignOut(false)
+                void onSignOut()
+              }}
+            >
+              ログアウトする
+            </button>
+            <button type="button" className="ghost" onClick={() => setConfirmingSignOut(false)}>
+              取消
+            </button>
+          </>
+        ) : (
+          <button type="button" className="ghost" onClick={() => setConfirmingSignOut(true)}>
+            ログアウト
+          </button>
+        )}
       </div>
+
       <p className="detail__hint">
         ログアウトすると、この端末の通知の宛先も解除します。
         端末に保存されているタスクは消えません。
       </p>
-    </section>
+    </div>
   )
 }

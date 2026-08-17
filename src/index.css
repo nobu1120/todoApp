@@ -260,6 +260,11 @@ textarea {
   margin-bottom: 20px;
 }
 
+/* 見出しが縮めるようにしておかないと、右のアカウント表示と重なる。 */
+.app__headline {
+  min-width: 0;
+}
+
 .app__eyebrow {
   font-size: 0.6875rem;
   font-weight: 700;
@@ -281,6 +286,191 @@ textarea {
   background: var(--accent);
   color: var(--accent-ink);
   font-variant-numeric: tabular-nums;
+}
+
+.app__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+/* --- アカウント --- */
+
+/* 「今どのアカウントか」を、設定を開かずに分かるようにする */
+.account-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  max-width: 44vw;
+  padding: 4px 12px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--border);
+}
+
+.account-button:hover {
+  background: var(--surface-2);
+}
+
+.account-button--signed-in {
+  padding-left: 5px;
+  color: var(--text);
+}
+
+.account-button__avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.account-button__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.account-button__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.account-button__dot--syncing {
+  background: var(--text-muted);
+  animation: blink 1.1s ease-in-out infinite;
+}
+
+.account-button__dot--synced {
+  background: var(--accent);
+}
+
+.account-button__dot--error {
+  background: var(--border-strong);
+}
+
+@keyframes blink {
+  50% { opacity: 0.25; }
+}
+
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.account__hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.account__avatar {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1.375rem;
+  font-weight: 800;
+}
+
+.account__avatar--empty {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 1.25rem;
+}
+
+.account__id {
+  min-width: 0;
+}
+
+.account__title {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.account__sub {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.account__form,
+.account__sent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account__form input {
+  width: 100%;
+}
+
+.account__sent {
+  padding: 14px 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.account__sent .detail__hint {
+  color: var(--accent-ink);
+  opacity: 0.75;
+}
+
+.account__sent .ghost {
+  align-self: flex-start;
+  color: var(--accent-ink);
+  text-decoration: underline;
+}
+
+.account__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.account__facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.account__facts dt {
+  color: var(--text-muted);
+}
+
+.account__facts dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.account__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 /* --- リマインド --- */
@@ -1068,6 +1258,16 @@ textarea {
 @media (max-width: 480px) {
   body { padding: 20px 12px 110px; }
   .app__remaining { font-size: 1.375rem; }
+
+  /* 狭い画面では名前を畳む。どのアカウントかは頭文字と、開いたときの全表示で分かる。 */
+  .account-button__name {
+    display: none;
+  }
+
+  .account-button--signed-in {
+    padding: 4px 9px 4px 5px;
+  }
+
   .category-add { flex-wrap: wrap; }
   .category-add input { flex-basis: 100%; }
 }
