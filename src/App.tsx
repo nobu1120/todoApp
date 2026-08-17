@@ -15,6 +15,9 @@ import { Drawer } from './components/Drawer'
 import { TaskDetail } from './components/TaskDetail'
 import { SettingsPanel } from './components/SettingsPanel'
 import { Icon } from './components/Icon'
+import { ViewTabs, type ViewMode } from './components/ViewTabs'
+import { CalendarView } from './components/CalendarView'
+import { currentYearMonth, toYearMonth } from './lib/calendar'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -34,7 +37,18 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [showDone, setShowDone] = useState(false)
+  const [view, setView] = useState<ViewMode>('list')
   const today = useToday()
+
+  // カレンダーで見ている日と月。初期値は今日。
+  const [selectedDate, setSelectedDate] = useState(today)
+  const [month, setMonth] = useState(() => currentYearMonth())
+
+  const selectDate = useCallback((date: string) => {
+    setSelectedDate(date)
+    // 前後の月のマスを押したら、その月へ送る。
+    setMonth(toYearMonth(date))
+  }, [])
 
   const sync = useSync(store, todo.replaceStore)
 
@@ -99,7 +113,7 @@ export default function App() {
   const remaining = countActive(todos)
 
   return (
-    <div className="app">
+    <div className={`app${view === 'calendar' ? ' app--calendar' : ''}`}>
       <header className="app__header">
         <div className="app__headline">
           <p className="app__eyebrow">Todo</p>
@@ -130,6 +144,24 @@ export default function App() {
         </div>
       </header>
 
+      <ViewTabs view={view} onChange={setView} />
+
+      {view === 'calendar' ? (
+        <CalendarView
+          todos={todos}
+          categories={categories}
+          today={today}
+          month={month}
+          selected={selectedDate}
+          onChangeMonth={setMonth}
+          onSelect={selectDate}
+          onAdd={todo.add}
+          onToggle={todo.toggle}
+          onOpen={setOpenId}
+          onRemove={todo.remove}
+        />
+      ) : (
+      <>
       <ReminderBanner overdue={attention.overdue} dueToday={attention.today} onJump={jump} />
 
       <TodoForm
@@ -201,6 +233,9 @@ export default function App() {
             />
           )}
         </section>
+      )}
+
+      </>
       )}
 
       <Drawer open={openTodo !== null} title="タスクの詳細" onClose={() => setOpenId(null)}>

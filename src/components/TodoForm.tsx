@@ -9,10 +9,12 @@ type Props = {
   today: string
   /** カテゴリで絞り込み中なら、それを初期カテゴリにする。 */
   defaultCategoryId: string | null
+  /** 期限を固定する（カレンダーで選んだ日に足すとき）。指定時は期限の選択欄を出さない。 */
+  fixedDueDate?: string
   onAdd: (input: NewTodoInput) => void
 }
 
-export function TodoForm({ categories, today, defaultCategoryId, onAdd }: Props) {
+export function TodoForm({ categories, today, defaultCategoryId, fixedDueDate, onAdd }: Props) {
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(defaultCategoryId)
@@ -29,7 +31,7 @@ export function TodoForm({ categories, today, defaultCategoryId, onAdd }: Props)
 
     onAdd({
       title,
-      dueDate: dueDate === '' ? null : dueDate,
+      dueDate: fixedDueDate ?? (dueDate === '' ? null : dueDate),
       categoryId,
     })
     setTitle('')
@@ -72,7 +74,7 @@ export function TodoForm({ categories, today, defaultCategoryId, onAdd }: Props)
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onFocus={() => setShowOptions(true)}
-          placeholder="新しいタスク..."
+          placeholder={fixedDueDate === undefined ? '新しいタスク...' : 'この日にタスクを追加...'}
           aria-label="新しいタスク"
         />
         <button
@@ -87,7 +89,7 @@ export function TodoForm({ categories, today, defaultCategoryId, onAdd }: Props)
 
       {expanded && (
         <div className="todo-form__options">
-          {editingDate ? (
+          {fixedDueDate !== undefined ? null : editingDate ? (
             <input
               ref={dateRef}
               className="todo-form__date"
@@ -108,7 +110,7 @@ export function TodoForm({ categories, today, defaultCategoryId, onAdd }: Props)
             </button>
           )}
 
-          {dueDate !== '' && (
+          {fixedDueDate === undefined && dueDate !== '' && (
             <button
               type="button"
               className="chip chip--clear"
@@ -122,7 +124,7 @@ export function TodoForm({ categories, today, defaultCategoryId, onAdd }: Props)
             </button>
           )}
 
-          <span className="todo-form__divider" aria-hidden="true" />
+          {fixedDueDate === undefined && <span className="todo-form__divider" aria-hidden="true" />}
 
           <button
             type="button"

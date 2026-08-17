@@ -496,6 +496,291 @@ textarea {
   gap: 8px;
 }
 
+/* --- 表示の切り替え --- */
+
+.view-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.view-tab {
+  min-height: 42px;
+  padding: 4px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.view-tab:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.view-tab[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 800;
+  border-bottom-color: var(--border-strong);
+}
+
+/*
+ * カレンダー表示では、上半分のカレンダーを固定して下半分だけを送る。
+ * ページ全体が伸びると、日を選ぶたびにカレンダーが画面外へ逃げてしまう。
+ *
+ * 高さを calc で引き算すると body のパディングとずれて下半分が潰れるので、
+ * body 自体を画面の高さに合わせ、余白は padding として内側で吸収させる。
+ * 下の余白（取り消しトースト用）はこの表示では不要なので詰める。
+ */
+body:has(.app--calendar) {
+  height: 100dvh;
+  padding-bottom: 16px;
+  overflow: hidden;
+}
+
+/* React のマウント先。ここに高さを与えないと百分率の連鎖が切れる。 */
+#root:has(.app--calendar) {
+  height: 100%;
+}
+
+.app--calendar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* --- カレンダー --- */
+
+/*
+ * 上下をおよそ半分ずつにする。固定の高さにすると、画面が短い端末で
+ * 下half が潰れてしまう（実測で 87px しか残らなかった）。
+ * 週の高さを伸縮させ、余った高さは下の一覧に回す。
+ */
+.calendar {
+  flex: 1 1 46%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.calendar__month {
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar__prev,
+.calendar__next {
+  display: inline-flex;
+}
+
+.calendar__prev { transform: rotate(90deg); }
+.calendar__next { transform: rotate(-90deg); }
+
+.calendar__weekdays,
+.calendar__week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar__week {
+  flex: 1;
+  /* これ以上詰めると数字とマークが重なるので下限を切る */
+  min-height: 28px;
+}
+
+.calendar__weekday {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.calendar__grid {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.calendar__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  justify-content: center;
+  gap: 2px;
+  padding: 1px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar__day:hover {
+  background: var(--surface-2);
+}
+
+.calendar__day--outside .calendar__num {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.calendar__num {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  width: 24px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+}
+
+/* 今日は輪郭で、選択は塗りで示す。両方が同時に立っても潰し合わない。 */
+.calendar__day.is-today .calendar__num {
+  border: 1.5px solid var(--border-strong);
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.calendar__day.is-selected {
+  background: var(--surface-2);
+}
+
+.calendar__day.is-selected .calendar__num {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.calendar__marks {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 5px;
+}
+
+.calendar__mark {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.calendar__mark--done {
+  background: var(--text-muted);
+  opacity: 0.4;
+}
+
+.calendar__more {
+  font-size: 0.5625rem;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+/* --- 選んだ日の予定 --- */
+
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 54%;
+  min-height: 0;
+}
+
+.day__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+}
+
+.day__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.day__badge {
+  padding: 1px 8px;
+  font-size: 0.6875rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.day__count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 下半分だけがスクロールする */
+.day__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--border);
+}
+
+.day__empty {
+  padding: 32px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.day__undated {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.day .todo-form {
+  flex: none;
+  margin-bottom: 0;
+}
+
+/* 読み上げにだけ渡す補足 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* --- リマインド --- */
 
 .reminder {
