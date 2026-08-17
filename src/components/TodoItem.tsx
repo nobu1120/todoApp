@@ -23,9 +23,7 @@ export function TodoItem({ todo, categories, today, onToggle, onOpen, onRemove }
   const hasMeta = category !== null || progress !== null || todo.notes.trim() !== ''
 
   return (
-    <li className={`todo-item${todo.done ? ' todo-item--done' : ''}`} data-color={category?.color}>
-      {category !== null && <span className="todo-item__bar" aria-hidden="true" />}
-
+    <li className={`todo-item${todo.done ? ' todo-item--done' : ''}`}>
       <label className="todo-item__check">
         <input
           className="check check--lg"

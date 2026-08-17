@@ -1,85 +1,84 @@
 /*
- * 配色は「くすみラベンダー × ウォームグレー」。
- * アクセントを青から外したのは、青が業務ツール・管理画面の記号になっているため。
- * 危険色はアクセントと十分に離した色相（ローズ）にして、意味の衝突を避ける。
+ * 「白と蛍光」
  *
- * カテゴリ色は 2 トークン持つ:
- *   --cat       … 文字に使える濃さ（白地でコントラスト 4.5:1 以上）
- *   --cat-soft  … 面で塗るための淡い色
- * くすみ色をそのまま文字に使うとコントラストが足りないため。
+ * 差し色は蛍光イエロー 1 色だけ。視線の行き先を 1 つに絞るのが狙いなので、
+ * カテゴリを色で塗り分けることはしない（一覧では分類を文字で示す）。
+ * カテゴリ色は、選ぶ・管理する場面＝フィルタと設定にだけ残す。
+ *
+ * 蛍光色は白地でコントラストが取れない（#d9f24a は白に対して約 1.3:1）。
+ * 文字色には使わず、必ず「面で塗って上に黒を載せる」形でのみ使う。
  */
 :root {
-  --bg: #faf7f8;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f6f2f4;
-  --border: #efe7ea;
-  --border-strong: #dccfd5;
-  --text: #443c42;
-  --text-muted: #9a8d94;
-  --accent: #7d6bb5;
-  --accent-strong: #6b59a3;
-  --accent-soft: #f2eefa;
-  --danger: #c9526b;
-  --danger-soft: #fdeef1;
+  --surface-2: #f4f4f4;
+  --border: #e8e8e8;
+  --border-strong: #111111;
+  --text: #111111;
+  --text-muted: #8a8a8a;
 
-  --radius: 18px;
-  --radius-sm: 12px;
+  --accent: #d9f24a;
+  /* 蛍光の上に載せる文字。両テーマとも黒で固定する。 */
+  --accent-ink: #111111;
+
+  /* 期限切れ＝反転バッジ、今日＝蛍光バッジ。色相ではなく強さで差をつける。 */
+  --alert-bg: #111111;
+  --alert-fg: #d9f24a;
+  --today-bg: #d9f24a;
+  --today-fg: #111111;
+
+  --radius: 4px;
+  --radius-sm: 3px;
   --pill: 999px;
-  --shadow: 0 2px 10px rgb(93 74 110 / 0.05);
-  --shadow-lift: 0 6px 20px rgb(93 74 110 / 0.1);
 
-  --cat-blue: #4a7fb5;         --cat-blue-soft: #eaf2fa;
-  --cat-green: #4f8a5f;        --cat-green-soft: #eaf5ec;
-  --cat-orange: #b5713a;       --cat-orange-soft: #fdf0e6;
-  --cat-purple: #7d6bb5;       --cat-purple-soft: #f2eefa;
-  --cat-red: #c25570;          --cat-red-soft: #fdedf1;
-  --cat-teal: #3f8a93;         --cat-teal-soft: #e8f5f6;
-  --cat-pink: #c05f96;         --cat-pink-soft: #fceef6;
-  --cat-gray: #7b7280;         --cat-gray-soft: #f3f0f4;
+  --cat-blue: #3b7dd8;
+  --cat-green: #3f9d5a;
+  --cat-orange: #d9822b;
+  --cat-purple: #8b5cf6;
+  --cat-red: #e0393e;
+  --cat-teal: #14a3a3;
+  --cat-pink: #e0459b;
+  --cat-gray: #8a8a8a;
 
   color-scheme: light dark;
-  /* Apple 環境では丸ゴシックが当たる。Web フォントを読ませないので追加の通信は 0。 */
-  font-family: 'Hiragino Maru Gothic ProN', -apple-system, 'Segoe UI Variable Text',
-    system-ui, 'Noto Sans JP', sans-serif;
+  font-family: 'Hiragino Sans', 'Yu Gothic', 'YuGothic', 'Noto Sans JP', system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1b1720;
-    --surface: #251f2c;
-    --surface-2: #2f2838;
-    --border: #3a3244;
-    --border-strong: #4e4459;
-    --text: #ece7ef;
-    --text-muted: #a99eb2;
-    --accent: #b5a3e8;
-    --accent-strong: #c7b8f0;
-    --accent-soft: #302a44;
-    --danger: #f0879c;
-    --danger-soft: #3d2430;
+    --bg: #0e0e0e;
+    --surface: #0e0e0e;
+    --surface-2: #1a1a1a;
+    --border: #272727;
+    --border-strong: #f0f0f0;
+    --text: #f0f0f0;
+    --text-muted: #8a8a8a;
 
-    --shadow: 0 2px 10px rgb(0 0 0 / 0.25);
-    --shadow-lift: 0 6px 20px rgb(0 0 0 / 0.35);
+    /* 暗地では蛍光がそのまま浮くので、期限切れを塗り、今日を文字色にする */
+    --alert-bg: #d9f24a;
+    --alert-fg: #111111;
+    --today-bg: transparent;
+    --today-fg: #d9f24a;
 
-    --cat-blue: #8fb8e0;       --cat-blue-soft: #26313d;
-    --cat-green: #92c9a1;      --cat-green-soft: #223028;
-    --cat-orange: #e0a878;     --cat-orange-soft: #3a2c1e;
-    --cat-purple: #b5a3e8;     --cat-purple-soft: #302a44;
-    --cat-red: #ef92a8;        --cat-red-soft: #3a2229;
-    --cat-teal: #7fc4cc;       --cat-teal-soft: #1f3336;
-    --cat-pink: #e59cc6;       --cat-pink-soft: #3a2433;
-    --cat-gray: #b0a5b8;       --cat-gray-soft: #302b34;
+    --cat-blue: #6fa8f5;
+    --cat-green: #5fc47c;
+    --cat-orange: #f0a556;
+    --cat-purple: #b18cff;
+    --cat-red: #ff6b70;
+    --cat-teal: #3fd0d0;
+    --cat-pink: #ff77c0;
+    --cat-gray: #8a8a8a;
   }
 }
 
-[data-color='blue']   { --cat: var(--cat-blue);   --cat-bg: var(--cat-blue-soft); }
-[data-color='green']  { --cat: var(--cat-green);  --cat-bg: var(--cat-green-soft); }
-[data-color='orange'] { --cat: var(--cat-orange); --cat-bg: var(--cat-orange-soft); }
-[data-color='purple'] { --cat: var(--cat-purple); --cat-bg: var(--cat-purple-soft); }
-[data-color='red']    { --cat: var(--cat-red);    --cat-bg: var(--cat-red-soft); }
-[data-color='teal']   { --cat: var(--cat-teal);   --cat-bg: var(--cat-teal-soft); }
-[data-color='pink']   { --cat: var(--cat-pink);   --cat-bg: var(--cat-pink-soft); }
-[data-color='gray']   { --cat: var(--cat-gray);   --cat-bg: var(--cat-gray-soft); }
+[data-color='blue'] { --cat: var(--cat-blue); }
+[data-color='green'] { --cat: var(--cat-green); }
+[data-color='orange'] { --cat: var(--cat-orange); }
+[data-color='purple'] { --cat: var(--cat-purple); }
+[data-color='red'] { --cat: var(--cat-red); }
+[data-color='teal'] { --cat: var(--cat-teal); }
+[data-color='pink'] { --cat: var(--cat-pink); }
+[data-color='gray'] { --cat: var(--cat-gray); }
 
 * {
   box-sizing: border-box;
@@ -87,11 +86,10 @@
 
 body {
   margin: 0;
-  padding: 28px 16px 110px;
+  padding: 26px 16px 110px;
   background: var(--bg);
   color: var(--text);
-  line-height: 1.65;
-  letter-spacing: 0.01em;
+  line-height: 1.6;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -110,21 +108,17 @@ button {
   cursor: pointer;
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: var(--pill);
-  padding: 9px 16px;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  border-radius: var(--radius);
+  padding: 9px 15px;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 button:hover:not(:disabled) {
   border-color: var(--border-strong);
 }
 
-button:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
 button:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -145,24 +139,29 @@ button.ghost {
 ) {
   font: inherit;
   color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 11px 14px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 11px 13px;
   min-width: 0;
+}
+
+:where(input, select, textarea):focus {
+  background: var(--surface);
+  border-color: var(--border-strong);
 }
 
 textarea {
   resize: vertical;
-  line-height: 1.8;
+  line-height: 1.75;
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--border-strong);
   outline-offset: 2px;
 }
 
-/* --- 丸いチェックボックス（共通） --- */
+/* --- 角ばったチェックボックス。完了した瞬間だけ蛍光が出る --- */
 
 .check {
   appearance: none;
@@ -171,18 +170,18 @@ textarea {
   place-items: center;
   flex: none;
   border: 2px solid var(--border-strong);
-  border-radius: 50%;
-  background: var(--surface);
+  border-radius: var(--radius-sm);
+  background: transparent;
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  transition: background 0.14s ease, border-color 0.14s ease;
 }
 
 .check::after {
   content: '';
-  border: solid #fff;
+  border: solid var(--accent-ink);
   border-width: 0 2.5px 2.5px 0;
   transform: rotate(45deg) scale(0);
-  transition: transform 0.2s cubic-bezier(0.2, 1.5, 0.4, 1);
+  transition: transform 0.16s cubic-bezier(0.2, 1.5, 0.4, 1);
 }
 
 .check:checked {
@@ -194,31 +193,10 @@ textarea {
   transform: rotate(45deg) scale(1);
 }
 
-.check:hover:not(:checked) {
-  border-color: var(--accent);
-}
-
-.check--lg {
-  width: 24px;
-  height: 24px;
-}
-
-.check--lg::after {
-  width: 6px;
-  height: 11px;
-  margin-top: -2px;
-}
-
-.check--sm {
-  width: 20px;
-  height: 20px;
-}
-
-.check--sm::after {
-  width: 5px;
-  height: 9px;
-  margin-top: -2px;
-}
+.check--lg { width: 22px; height: 22px; }
+.check--lg::after { width: 6px; height: 11px; margin-top: -2px; }
+.check--sm { width: 18px; height: 18px; }
+.check--sm::after { width: 5px; height: 9px; margin-top: -2px; }
 
 /* --- アイコンボタン（タップ領域 44px） --- */
 
@@ -240,10 +218,9 @@ textarea {
   color: var(--text);
 }
 
-.icon-button--lg {
-  font-size: 1.375rem;
-}
+.icon-button--lg { font-size: 1.375rem; }
 
+/* 色相を足さず、反転で「戻せない操作」を示す */
 .danger-button {
   display: inline-flex;
   align-items: center;
@@ -251,24 +228,25 @@ textarea {
   gap: 8px;
   width: 100%;
   min-height: 48px;
-  color: var(--danger);
-  border-color: var(--border);
-  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: transparent;
+  font-weight: 700;
 }
 
 .danger-button:hover:not(:disabled) {
-  background: var(--danger-soft);
-  border-color: var(--danger);
+  background: var(--border-strong);
+  color: var(--bg);
 }
 
 .danger-button--small {
   width: auto;
   min-height: 38px;
-  padding: 4px 16px;
+  padding: 4px 14px;
 }
 
 .app {
-  max-width: 660px;
+  max-width: 640px;
   margin: 0 auto;
 }
 
@@ -283,24 +261,26 @@ textarea {
 }
 
 .app__eyebrow {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--accent);
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
 }
 
 .app__remaining {
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 
+/* 蛍光は面で塗り、文字は黒。蛍光を文字色にすると白地で読めない。 */
 .app__remaining strong {
-  font-size: 2.125rem;
+  display: inline-block;
+  padding: 0 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
-  margin: 0 2px;
 }
 
 /* --- リマインド --- */
@@ -309,83 +289,71 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .reminder__item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 42px;
-  border-radius: var(--pill);
-  padding: 6px 18px;
-  font-size: 0.9375rem;
+  min-height: 40px;
+  padding: 6px 14px;
+  font-size: 0.875rem;
+  font-weight: 700;
   border-color: transparent;
 }
 
 .reminder__item strong {
   font-variant-numeric: tabular-nums;
-  font-size: 1.0625rem;
+  font-size: 1rem;
 }
 
 .reminder__item--overdue {
-  color: var(--danger);
-  background: var(--danger-soft);
+  background: var(--alert-bg);
+  color: var(--alert-fg);
 }
 
 .reminder__item--today {
-  color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 /* --- 入力 --- */
 
 .todo-form {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .todo-form__row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .todo-form__title {
   flex: 1 1 auto;
-  padding: 15px 20px;
-  border-radius: var(--pill);
-  box-shadow: var(--shadow);
-  border-color: transparent;
-}
-
-.todo-form__title::placeholder {
-  color: var(--text-muted);
+  padding: 14px 16px;
 }
 
 .todo-form__submit {
   flex: none;
   display: grid;
   place-items: center;
-  width: 54px;
-  height: 54px;
+  width: 50px;
   padding: 0;
-  font-size: 1.375rem;
-  color: #fff;
+  font-size: 1.25rem;
+  color: var(--accent-ink);
   background: var(--accent);
   border-color: var(--accent);
-  border-radius: 50%;
-  box-shadow: var(--shadow);
 }
 
 .todo-form__submit:hover:not(:disabled) {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  border-color: var(--border-strong);
 }
 
 .todo-form__submit:disabled {
   color: var(--text-muted);
-  background: var(--surface);
-  border-color: var(--border);
-  box-shadow: none;
+  background: var(--surface-2);
+  border-color: transparent;
 }
 
 .todo-form__options {
@@ -393,20 +361,18 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
-  padding: 0 6px;
+  margin-top: 8px;
 }
 
 .todo-form__date {
-  min-height: 38px;
-  padding: 5px 12px;
-  border-radius: var(--pill);
+  min-height: 36px;
+  padding: 4px 10px;
   font-size: 0.875rem;
 }
 
 .todo-form__divider {
   width: 1px;
-  height: 20px;
+  height: 18px;
   background: var(--border);
   margin: 0 4px;
 }
@@ -416,10 +382,9 @@ textarea {
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 5px 14px;
-  border-radius: var(--pill);
+  gap: 7px;
+  min-height: 36px;
+  padding: 4px 12px;
   font-size: 0.875rem;
   color: var(--text-muted);
   background: transparent;
@@ -432,20 +397,15 @@ textarea {
 
 .chip.is-selected {
   color: var(--text);
-  background: var(--surface);
+  background: transparent;
   border-color: var(--border-strong);
   font-weight: 700;
 }
 
-.chip--cat.is-selected {
-  color: var(--cat);
-  background: var(--cat-bg);
-  border-color: transparent;
-}
-
+/* 分類の色は「選ぶ・管理する」場面にだけ残す。一覧には持ち込まない。 */
 .chip__dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--cat, var(--text-muted));
   flex: none;
@@ -454,21 +414,17 @@ textarea {
 .chip__count {
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
-  opacity: 0.85;
 }
 
-.chip--clear {
-  padding: 5px 10px;
-}
+.chip--clear { padding: 4px 9px; }
 
 /* --- フィルタ --- */
 
 .filter-bar {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 14px;
-  padding: 0 2px;
 }
 
 .filter-bar__row {
@@ -480,10 +436,10 @@ textarea {
 .filter {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 5px 14px;
-  border-radius: var(--pill);
+  gap: 7px;
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: var(--radius);
   border-color: transparent;
   background: transparent;
   color: var(--text-muted);
@@ -496,8 +452,8 @@ textarea {
 
 .filter[aria-current='true'] {
   background: var(--accent);
-  color: #fff;
-  font-weight: 700;
+  color: var(--accent-ink);
+  font-weight: 800;
 }
 
 .filter__count {
@@ -505,53 +461,29 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-/* --- 一覧 --- */
+/* --- 一覧。囲まず、細い罫線だけで区切る --- */
 
 .todo-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  border-top: 1px solid var(--border);
 }
 
-/* 行を 1 枚ずつのカードにして、余白と角丸で圧迫感を減らす */
 .todo-item {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 4px;
-  padding: 6px 8px 6px 4px;
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  /* 左端の色帯をカードの角丸に沿わせる（無いと直線の帯が丸みからはみ出す） */
-  overflow: hidden;
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.todo-item:hover {
-  box-shadow: var(--shadow-lift);
-}
-
-.todo-item--done {
-  background: transparent;
-  box-shadow: none;
-}
-
-.todo-item__bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--cat);
+  gap: 2px;
+  padding-right: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .todo-item__check {
   flex: none;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 60px;
+  width: 44px;
+  height: 56px;
   cursor: pointer;
 }
 
@@ -561,16 +493,16 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
-  padding: 12px 6px;
+  gap: 4px;
+  padding: 11px 6px;
   text-align: left;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: none;
 }
 
-.todo-item__main:active {
-  transform: none;
+.todo-item__main:hover {
+  background: var(--surface-2);
 }
 
 .todo-item__line {
@@ -582,40 +514,33 @@ textarea {
 
 .todo-item__emoji {
   flex: none;
-  font-size: 1.125rem;
+  font-size: 1.0625rem;
   line-height: 1.2;
 }
 
 .todo-item__title {
   overflow-wrap: anywhere;
-  font-size: 1rem;
+  font-weight: 700;
 }
 
 .todo-item--done .todo-item__title {
   color: var(--text-muted);
+  font-weight: 400;
   text-decoration: line-through;
-  text-decoration-color: var(--border-strong);
 }
 
 .todo-item__meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  font-size: 0.8125rem;
+  gap: 10px;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
-/* カテゴリは淡い面で塗る。色の面積を増やすほど、道具ではなく持ち物の見た目に近づく */
+/* 分類は色ではなく文字で示す */
 .todo-item__cat {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: var(--pill);
-  background: var(--cat-bg);
-  color: var(--cat);
-  font-weight: 700;
-  font-size: 0.75rem;
+  letter-spacing: 0.1em;
 }
 
 .todo-item__count {
@@ -632,25 +557,27 @@ textarea {
   align-items: center;
   gap: 4px;
   align-self: center;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .todo-item__due--today {
-  color: var(--accent);
+  padding: 1px 7px;
+  background: var(--today-bg);
+  color: var(--today-fg);
   font-weight: 700;
 }
 
 .todo-item__due--overdue {
-  color: var(--danger);
+  padding: 1px 7px;
+  background: var(--alert-bg);
+  color: var(--alert-fg);
   font-weight: 700;
 }
 
-.todo-item__alert {
-  display: inline-flex;
-}
+.todo-item__alert { display: inline-flex; }
 
 .todo-item__remove {
   align-self: center;
@@ -663,95 +590,81 @@ textarea {
  * 行からは外して詳細画面の「このタスクを削除」に集約する。
  */
 @media (hover: hover) {
-  .todo-item__remove {
-    opacity: 0;
-  }
-
+  .todo-item__remove { opacity: 0; }
   .todo-item:hover .todo-item__remove,
-  .todo-item:focus-within .todo-item__remove {
-    opacity: 1;
-  }
+  .todo-item:focus-within .todo-item__remove { opacity: 1; }
 }
 
 @media (hover: none) {
-  .todo-item__remove {
-    display: none;
-  }
+  .todo-item__remove { display: none; }
 }
 
-/* --- 進捗 --- */
+/* --- 進捗。ここも蛍光を使う --- */
 
 .progress {
   display: block;
   width: 100%;
-  height: 6px;
-  border-radius: var(--pill);
+  height: 4px;
   background: var(--surface-2);
   overflow: hidden;
 }
 
 .progress--inline {
-  max-width: 150px;
-  height: 5px;
+  max-width: 140px;
+  height: 3px;
 }
 
 .progress__bar {
   display: block;
   height: 100%;
-  border-radius: var(--pill);
-  background: var(--cat, var(--accent));
-  transition: width 0.32s cubic-bezier(0.3, 1.2, 0.4, 1);
+  background: var(--accent);
+  transition: width 0.28s ease;
 }
 
 /* --- 完了セクション --- */
 
-.done-section {
-  margin-top: 18px;
-}
+.done-section { margin-top: 16px; }
 
 .done-section__toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 42px;
+  min-height: 40px;
   border-color: transparent;
   background: transparent;
   color: var(--text-muted);
+  padding-left: 6px;
+  letter-spacing: 0.06em;
 }
 
 .done-section__chevron {
   display: inline-flex;
-  transition: transform 0.2s ease;
+  transition: transform 0.18s ease;
 }
 
-.done-section__chevron.is-open {
-  transform: rotate(180deg);
-}
+.done-section__chevron.is-open { transform: rotate(180deg); }
 
-.done-section .todo-list {
-  margin-top: 8px;
-}
+.done-section .todo-list { margin-top: 6px; }
 
 /* --- 空状態・全部完了 --- */
 
 .empty {
-  padding: 52px 24px;
+  padding: 52px 20px;
   text-align: center;
   color: var(--text-muted);
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .empty__art {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   line-height: 1;
   margin-bottom: 14px;
 }
 
 .empty__title {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 800;
   font-size: 1.0625rem;
 }
 
@@ -760,13 +673,20 @@ textarea {
   font-size: 0.875rem;
 }
 
+.celebrate .empty__title {
+  display: inline-block;
+  padding: 2px 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 .celebrate .empty__art {
-  animation: pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1);
+  animation: pop 0.45s cubic-bezier(0.2, 1.5, 0.4, 1);
 }
 
 @keyframes pop {
-  0% { transform: scale(0.4); opacity: 0; }
-  60% { transform: scale(1.15); }
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.12); }
   100% { transform: scale(1); opacity: 1; }
 }
 
@@ -781,53 +701,41 @@ textarea {
 .drawer__backdrop {
   position: absolute;
   inset: 0;
-  background: rgb(50 38 58 / 0.38);
-  backdrop-filter: blur(2px);
-  animation: fade 0.2s ease;
-}
-
-@keyframes fade {
-  from { opacity: 0; }
+  background: rgb(17 17 17 / 0.45);
 }
 
 .drawer__panel {
   position: absolute;
   inset: 0 0 0 auto;
-  width: min(460px, 100%);
+  width: min(440px, 100%);
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  box-shadow: -8px 0 40px rgb(50 38 58 / 0.2);
-  animation: slide-in 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
+  border-left: 1px solid var(--border-strong);
 }
 
-@keyframes slide-in {
-  from { transform: translateX(24px); opacity: 0; }
-}
-
-.drawer__panel:focus {
-  outline: none;
-}
+.drawer__panel:focus { outline: none; }
 
 .drawer__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 10px 10px 24px;
+  padding: 8px 8px 8px 20px;
   border-bottom: 1px solid var(--border);
 }
 
 .drawer__title {
-  font-size: 0.9375rem;
+  font-size: 0.75rem;
   font-weight: 700;
+  letter-spacing: 0.14em;
   color: var(--text-muted);
 }
 
 .drawer__body {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 20px 40px;
+  padding: 22px 20px 40px;
   overscroll-behavior: contain;
 }
 
@@ -836,12 +744,8 @@ textarea {
     inset: auto 0 0 0;
     width: 100%;
     height: 92vh;
-    border-radius: 24px 24px 0 0;
-    animation: slide-up 0.26s cubic-bezier(0.2, 0.9, 0.3, 1);
-  }
-
-  @keyframes slide-up {
-    from { transform: translateY(28px); opacity: 0; }
+    border-left: none;
+    border-top: 2px solid var(--border-strong);
   }
 }
 
@@ -856,30 +760,26 @@ textarea {
 .detail__head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .detail__icon {
   flex: none;
   display: grid;
   place-items: center;
-  width: 54px;
-  height: 54px;
+  width: 50px;
+  height: 50px;
   padding: 0;
-  font-size: 1.625rem;
+  font-size: 1.5rem;
   color: var(--text-muted);
-  background: var(--surface);
+  background: var(--surface-2);
   border-color: transparent;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
 }
 
 .detail__title {
   flex: 1 1 auto;
-  font-size: 1.125rem;
-  font-weight: 700;
-  border-color: transparent;
-  box-shadow: var(--shadow);
+  font-size: 1.0625rem;
+  font-weight: 800;
 }
 
 .detail__section {
@@ -896,15 +796,14 @@ textarea {
 }
 
 .detail__label {
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: var(--text-muted);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
 }
 
 .detail__progress-text {
   font-size: 0.8125rem;
-  color: var(--accent);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -922,14 +821,11 @@ textarea {
 }
 
 .detail__hint--warn {
-  color: var(--danger);
+  color: var(--text);
+  font-weight: 700;
 }
 
-.detail__notes {
-  width: 100%;
-  border-color: transparent;
-  box-shadow: var(--shadow);
-}
+.detail__notes { width: 100%; }
 
 .chip-row {
   display: flex;
@@ -943,17 +839,16 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px;
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  padding: 14px;
+  background: var(--surface-2);
 }
 
 .emoji-picker__label {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--text-muted);
   margin-bottom: 4px;
   font-weight: 700;
+  letter-spacing: 0.1em;
 }
 
 .emoji-picker__grid {
@@ -967,28 +862,25 @@ textarea {
   place-items: center;
   height: 44px;
   padding: 0;
-  font-size: 1.375rem;
+  font-size: 1.25rem;
   border-color: transparent;
   background: transparent;
-  border-radius: var(--radius-sm);
 }
 
-.emoji-picker__item:hover {
-  background: var(--surface-2);
-}
+.emoji-picker__item:hover { background: var(--bg); }
 
 .emoji-picker__item.is-selected {
-  background: var(--accent-soft);
+  background: var(--accent);
   border-color: var(--accent);
 }
 
 .emoji-picker__item--none {
   width: auto;
-  padding: 0 18px;
+  padding: 0 16px;
   font-size: 0.875rem;
   color: var(--text-muted);
   border-color: var(--border);
-  border-radius: var(--pill);
+  background: var(--bg);
 }
 
 /* --- サブタスク --- */
@@ -996,21 +888,22 @@ textarea {
 .subtasks {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .subtask {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .subtask__check {
   flex: none;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 46px;
+  width: 38px;
+  height: 44px;
   cursor: pointer;
 }
 
@@ -1018,17 +911,12 @@ textarea {
   flex: 1 1 auto;
   border-color: transparent;
   background: transparent;
-  padding: 9px 8px;
-}
-
-.subtask__title:hover {
-  background: var(--surface-2);
+  padding: 9px 6px;
 }
 
 .subtask__title.is-done {
   color: var(--text-muted);
   text-decoration: line-through;
-  text-decoration-color: var(--border-strong);
 }
 
 .subtask__remove {
@@ -1038,39 +926,30 @@ textarea {
 }
 
 @media (hover: hover) {
-  .subtask__remove {
-    opacity: 0;
-  }
-
+  .subtask__remove { opacity: 0; }
   .subtask:hover .subtask__remove,
-  .subtask:focus-within .subtask__remove {
-    opacity: 1;
-  }
+  .subtask:focus-within .subtask__remove { opacity: 1; }
 }
 
 .subtasks__add {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   margin-top: 6px;
 }
 
 .subtasks__add-icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  color: var(--accent);
+  width: 38px;
+  color: var(--text);
 }
 
 .subtasks__add input {
   flex: 1 1 auto;
   border-color: transparent;
   background: transparent;
-  padding: 9px 8px;
-}
-
-.subtasks__add input:focus {
-  background: var(--surface);
+  padding: 9px 6px;
 }
 
 /* --- 設定 --- */
@@ -1085,7 +964,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 46px;
+  min-height: 44px;
   cursor: pointer;
 }
 
@@ -1104,7 +983,6 @@ textarea {
 .category-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
 .category-row {
@@ -1112,10 +990,8 @@ textarea {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 4px 10px;
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .category-row__name {
@@ -1125,18 +1001,12 @@ textarea {
   background: transparent;
   padding: 9px 8px;
   font-weight: 700;
-  color: var(--cat);
-}
-
-.category-row__name:focus {
-  background: var(--surface-2);
 }
 
 .category-row__color {
   flex: none;
   font-size: 0.8125rem;
-  padding: 7px 10px;
-  border-radius: var(--pill);
+  padding: 7px 9px;
 }
 
 .category-row__confirm {
@@ -1146,89 +1016,64 @@ textarea {
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px 14px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 0.8125rem;
-  color: var(--danger);
-  background: var(--danger-soft);
-  border-radius: var(--radius-sm);
+  color: var(--alert-fg);
+  background: var(--alert-bg);
 }
 
 .category-add {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
-.category-add input {
-  flex: 1 1 auto;
-}
+.category-add input { flex: 1 1 auto; }
 
 /* --- 削除の取り消し --- */
 
 .undo {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  bottom: 20px;
   transform: translateX(-50%);
   z-index: 60;
   display: flex;
   align-items: center;
   gap: 12px;
   max-width: calc(100vw - 32px);
-  padding: 10px 12px 10px 20px;
-  border-radius: var(--pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-lift);
-  animation: rise 0.24s cubic-bezier(0.2, 1.2, 0.4, 1);
-}
-
-@keyframes rise {
-  from { transform: translate(-50%, 12px); opacity: 0; }
+  padding: 8px 8px 8px 18px;
+  background: var(--border-strong);
+  color: var(--bg);
 }
 
 .undo__text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 /* 幅が詰まったときに縮むのはメッセージ側。ボタンは折り返させない。 */
 .undo button {
   flex: none;
   white-space: nowrap;
-  min-height: 44px;
-  color: var(--accent);
-  font-weight: 700;
-  border-color: var(--border);
+  min-height: 40px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 800;
 }
 
 @media (max-width: 480px) {
-  body {
-    padding: 20px 12px 110px;
-  }
-
-  .app__remaining {
-    font-size: 1.5rem;
-  }
-
-  .app__remaining strong {
-    font-size: 1.875rem;
-  }
-
-  .category-add {
-    flex-wrap: wrap;
-  }
-
-  .category-add input {
-    flex-basis: 100%;
-  }
+  body { padding: 20px 12px 110px; }
+  .app__remaining { font-size: 1.375rem; }
+  .category-add { flex-wrap: wrap; }
+  .category-add input { flex-basis: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation: none !important;
     transition: none !important;
   }
