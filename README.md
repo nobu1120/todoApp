@@ -40,28 +40,51 @@ npm run preview  # 本番ビルドの確認 (http://localhost:4173/todoApp/)
 
 ### 初回だけ必要な手順
 
-**1. ワークフローを配置する**
+4 ステップとも **スマホのブラウザ（github.com）だけで完結する**。PC もターミナルも要らない。
+※ GitHub の**モバイルアプリではファイルを作成・移動できない**ので、ブラウザで開くこと。
+
+**1. デフォルトブランチを `main` にする**
+
+このリポジトリにはまだ `main` が無く、作業ブランチがデフォルトになっている。
+ワークフローは `main` への push で起動するため、先に直す。
+
+Settings → General → Default branch → ✏️ → `main` にリネーム。
+
+**2. リポジトリを public にする（Free プランの場合）**
+
+GitHub Pages を **private リポジトリから公開するには GitHub Pro 以上**が必要。
+Free プランなら Settings → General → Danger Zone → Change visibility → Public。
+
+> 公開して困るものは無い。タスクは端末のブラウザ内（localStorage）にしか保存されず、
+> リポジトリにもサーバーにも一切送られないため、ページを見られてもタスクの中身は漏れない。
+> 逆に、別の端末やブラウザからは別のデータになる（同期はしない）。
+
+Pro を使っているか、公開したくない場合はこの手順を飛ばしてよい。
+
+**3. ワークフローを配置する**
 
 デプロイ用ワークフローは [`docs/github-pages-deploy.yml`](docs/github-pages-deploy.yml) に置いてある。
-Claude が使うトークンに `workflow` スコープがなく `.github/workflows/` を push できないため、
-手元で移動してほしい。
+Claude が使うトークンに `workflow` スコープがなく、`.github/workflows/` へは push も API 経由の作成もできなかったため。
+
+スマホからは**ファイルを移動するのが一番早い**（中身をコピペしなくて済む）:
+
+`docs/github-pages-deploy.yml` を開く → ✏️ Edit → **ファイル名の欄**を
+`.github/workflows/deploy.yml` に書き換える → Commit changes
+
+ターミナルからやる場合:
 
 ```bash
-mkdir -p .github/workflows
-cp docs/github-pages-deploy.yml .github/workflows/deploy.yml
-git add .github/workflows/deploy.yml
+git mv docs/github-pages-deploy.yml .github/workflows/deploy.yml
 git commit -m "GitHub Pages へのデプロイワークフローを追加"
 git push
 ```
 
-**2. Pages を有効にする**
+**4. Pages を有効にする**
 
 Settings → Pages → Build and deployment → Source を **GitHub Actions** に変更する。
 
 以降は `main` に push するたび、テスト → ビルド → デプロイが自動で走る。
-
-> データは端末のブラウザ内にしか保存されないため、ページを公開しても他人からタスクは見えない。
-> 逆に、別の端末やブラウザからは別のデータになる（同期はしない）。
+Actions タブから手動実行（Run workflow）もできる。
 
 ## 構成
 

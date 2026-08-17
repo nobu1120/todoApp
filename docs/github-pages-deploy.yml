@@ -1,18 +1,9 @@
-# GitHub Pages 用のデプロイワークフロー。
+# main への push で テスト → ビルド → GitHub Pages へデプロイする。
 #
-# このファイルは .github/workflows/deploy.yml として配置すると動く。
-# ここに置いてあるのは、Claude が使うトークンに workflow スコープがなく
-# .github/workflows/ 配下を push できなかったため。手元で下記を実行してほしい:
-#
-#   mkdir -p .github/workflows
-#   cp docs/github-pages-deploy.yml .github/workflows/deploy.yml
-#   git add .github/workflows/deploy.yml
-#   git commit -m "GitHub Pages へのデプロイワークフローを追加"
-#   git push
-#
-# そのうえで、リポジトリの
-#   Settings → Pages → Build and deployment → Source
-# を「GitHub Actions」に変更すれば、main への push で自動デプロイされる。
+# このファイルは .github/workflows/deploy.yml に配置して初めて動く。
+# docs/ にあるうちは GitHub からは単なるテキストで、実行されない。
+# 移動手順と、あわせて必要な初期設定（デフォルトブランチ / 公開範囲 / Pages の有効化）は
+# README の「公開（GitHub Pages）」を参照。
 
 name: Deploy to GitHub Pages
 
