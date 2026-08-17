@@ -4,6 +4,7 @@ import { countActive, filterTodos, matchesStatus, needsAttention, sortTodos } fr
 import { useTodos } from './hooks/useTodos'
 import { useToday } from './hooks/useToday'
 import { useNotifications } from './hooks/useNotifications'
+import { useTheme } from './hooks/useTheme'
 import { useSync } from './hooks/useSync'
 import { AccountPanel } from './components/AccountPanel'
 import { AccountButton } from './components/AccountButton'
@@ -49,6 +50,9 @@ export default function App() {
     // 前後の月のマスを押したら、その月へ送る。
     setMonth(toYearMonth(date))
   }, [])
+
+  // 選んだテーマと明暗を <html> に反映する。'auto' はここで light / dark に畳まれる。
+  const resolvedAppearance = useTheme(settings.theme, settings.appearance)
 
   const sync = useSync(store, todo.replaceStore)
 
@@ -262,6 +266,7 @@ export default function App() {
           permission={permission}
           categories={categories}
           categoryUsage={categoryUsage}
+          resolvedAppearance={resolvedAppearance}
           signedIn={sync.session !== null}
           pushReady={sync.pushReady}
           onUpdateSettings={todo.updateSettings}

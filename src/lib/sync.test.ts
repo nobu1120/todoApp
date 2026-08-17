@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Todo, TodoStore } from '../types'
-import { emptyStore } from './storage'
+import { DEFAULT_SETTINGS, emptyStore } from './storage'
 import {
   fromRemoteTodo,
   mergeStore,
@@ -204,8 +204,11 @@ describe('mergeStore: カテゴリ', () => {
 
 describe('mergeStore: 設定', () => {
   it('サーバーに記録が無ければローカルを使う', () => {
-    const local = store({ settings: { notificationsEnabled: true, defaultNotifyTime: '07:30' } })
+    const local = store({
+      settings: { ...DEFAULT_SETTINGS, notificationsEnabled: true, defaultNotifyTime: '07:30' },
+    })
     expect(mergeStore(local, snapshot()).store.settings).toEqual({
+      ...DEFAULT_SETTINGS,
       notificationsEnabled: true,
       defaultNotifyTime: '07:30',
     })
@@ -220,12 +223,16 @@ describe('mergeStore: 設定', () => {
         notifications_enabled: true,
         default_notify_time: '08:15:00',
         time_zone: 'Asia/Tokyo',
+        theme: 'washi',
+        appearance: 'dark',
         updated_at: '2026-08-05T00:00:00.000Z',
       },
     })
     expect(result.store.settings).toEqual({
       notificationsEnabled: true,
       defaultNotifyTime: '08:15',
+      theme: 'washi',
+      appearance: 'dark',
     })
   })
 })

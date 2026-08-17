@@ -1,3 +1,5 @@
+import type { Appearance, ThemeId } from './lib/themes'
+
 export type Priority = 'high' | 'normal' | 'low'
 
 export type Subtask = {
@@ -51,6 +53,10 @@ export type Settings = {
   notificationsEnabled: boolean
   /** 時刻を指定していないタスクを、その日の何時に通知するか。'HH:MM' */
   defaultNotifyTime: string
+  /** 配色と書体の組み合わせ。値の定義は lib/themes.ts。 */
+  theme: ThemeId
+  /** 明暗。'auto' は端末の設定に従う。 */
+  appearance: Appearance
 }
 
 /**
@@ -64,7 +70,7 @@ export type Tombstone = {
 }
 
 export type TodoStore = {
-  schemaVersion: 3
+  schemaVersion: 4
   todos: Todo[]
   categories: Category[]
   settings: Settings

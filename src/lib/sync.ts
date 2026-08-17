@@ -1,5 +1,6 @@
 import type { Category, Settings, Todo, TodoStore, Tombstone } from '../types'
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
+import { isAppearance, isThemeId } from './themes'
 import type { CategoryColor } from '../types'
 
 /**
@@ -41,6 +42,8 @@ export type RemoteSettings = {
   notifications_enabled: boolean
   default_notify_time: string
   time_zone: string
+  theme: string | null
+  appearance: string | null
   updated_at: string
 }
 
@@ -92,6 +95,8 @@ export function toRemoteSettings(
     notifications_enabled: settings.notificationsEnabled,
     default_notify_time: settings.defaultNotifyTime,
     time_zone: timeZone,
+    theme: settings.theme,
+    appearance: settings.appearance,
     updated_at: updatedAt,
   }
 }
@@ -246,6 +251,11 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
       : {
           notificationsEnabled: remote.settings.notifications_enabled,
           defaultNotifyTime: remote.settings.default_notify_time.slice(0, 5),
+          // 古いサーバー行にはテーマが無い。そのときはこの端末の設定を残す。
+          theme: isThemeId(remote.settings.theme) ? remote.settings.theme : local.settings.theme,
+          appearance: isAppearance(remote.settings.appearance)
+            ? remote.settings.appearance
+            : local.settings.appearance,
         }
 
   // 消えたカテゴリを指したままのタスクを未分類に落とす。
@@ -258,7 +268,7 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
 
   return {
     store: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       todos,
       categories: [...mergedCategories.values()],
       settings,

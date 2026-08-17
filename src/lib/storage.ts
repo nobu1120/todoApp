@@ -10,9 +10,10 @@ import type {
 } from '../types'
 import { HM_RE, ISO_DATE_RE } from './date'
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
+import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 const STORAGE_KEY = 'todoApp.store'
-const CURRENT_VERSION = 3
+const CURRENT_VERSION = 4
 
 /** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -21,6 +22,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // 既定では OS 通知を使わない。許可ダイアログは設定から明示的に有効にしたときだけ出す。
   notificationsEnabled: false,
   defaultNotifyTime: '09:00',
+  theme: DEFAULT_THEME,
+  // 既定は端末の設定に従う。端末ごとに明暗が違っていて自然なため。
+  appearance: DEFAULT_APPEARANCE,
 }
 
 export const emptyStore: TodoStore = {
@@ -108,6 +112,9 @@ function parseSettings(value: unknown): Settings {
       typeof raw.defaultNotifyTime === 'string' && HM_RE.test(raw.defaultNotifyTime)
         ? raw.defaultNotifyTime
         : DEFAULT_SETTINGS.defaultNotifyTime,
+    // 知らないテーマ名（消したテーマ・古い版）は既定に落とす。
+    theme: isThemeId(raw.theme) ? raw.theme : DEFAULT_THEME,
+    appearance: isAppearance(raw.appearance) ? raw.appearance : DEFAULT_APPEARANCE,
   }
 }
 
@@ -128,6 +135,7 @@ function parseTombstone(value: unknown, now: number): Tombstone | null {
  * v1（todos だけ / icon・カテゴリ・サブタスク無し）からの移行は、
  * 足りないフィールドを既定値で埋め、カテゴリと設定を新設することで行う。
  * v2 → v3 は墓標の配列を足すだけ。
+ * v3 → v4 は設定にテーマと明暗を足すだけ（parseSettings が既定で埋める）。
  */
 export function migrate(value: unknown, now: number = Date.now()): TodoStore {
   if (typeof value !== 'object' || value === null) return emptyStore

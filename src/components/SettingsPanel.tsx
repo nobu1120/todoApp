@@ -3,12 +3,15 @@ import type { Category, CategoryColor, Settings } from '../types'
 import type { PermissionState } from '../lib/notify'
 import { CATEGORY_COLORS } from '../lib/categories'
 import { Icon } from './Icon'
+import { ThemePicker } from './ThemePicker'
 
 type Props = {
   settings: Settings
   permission: PermissionState
   categories: Category[]
   categoryUsage: Record<string, number>
+  /** 'auto' を畳んだ結果。いまライトかダークかの表示に使う。 */
+  resolvedAppearance: 'light' | 'dark'
   /** ログイン済みかどうか。閉じている間の通知にはログインが要る。 */
   signedIn: boolean
   pushReady: boolean
@@ -25,6 +28,7 @@ export function SettingsPanel({
   permission,
   categories,
   categoryUsage,
+  resolvedAppearance,
   signedIn,
   pushReady,
   onUpdateSettings,
@@ -59,6 +63,17 @@ export function SettingsPanel({
 
   return (
     <div className="settings">
+      <section className="detail__section">
+        <h3 className="detail__label">見た目</h3>
+        <ThemePicker
+          theme={settings.theme}
+          appearance={settings.appearance}
+          resolved={resolvedAppearance}
+          onChangeTheme={(theme) => onUpdateSettings({ theme })}
+          onChangeAppearance={(appearance) => onUpdateSettings({ appearance })}
+        />
+      </section>
+
       <section className="detail__section">
         <h3 className="detail__label">通知</h3>
 

@@ -304,7 +304,7 @@ describe('storeReducer: カテゴリと設定', () => {
 })
 
 describe('通知の判定', () => {
-  const settings: Settings = { notificationsEnabled: true, defaultNotifyTime: '09:00' }
+  const settings: Settings = { ...DEFAULT_SETTINGS, notificationsEnabled: true }
   const at = (h: number, m = 0) => new Date(2026, 7, 17, h, m)
 
   it('時刻未指定なら設定の既定時刻を使う', () => {
@@ -430,7 +430,7 @@ describe('migrate', () => {
       ],
     }
     const s = migrate(v1)
-    expect(s.schemaVersion).toBe(3)
+    expect(s.schemaVersion).toBe(4)
     expect(s.tombstones).toEqual([])
     expect(s.categories).toEqual(DEFAULT_CATEGORIES)
     expect(s.settings).toEqual(DEFAULT_SETTINGS)
@@ -518,7 +518,7 @@ describe('migrate', () => {
       settings: { notificationsEnabled: true, defaultNotifyTime: '08:00' },
     }
     const s = migrate(v2)
-    expect(s.schemaVersion).toBe(3)
+    expect(s.schemaVersion).toBe(4)
     expect(s.tombstones).toEqual([])
     expect(s.todos[0]).toMatchObject({ id: 'a', icon: '📄' })
     expect(s.categories).toEqual([{ id: 'c1', name: '仕事', color: 'blue' }])
