@@ -1,30 +1,26 @@
-import type { Todo } from '../types'
-import type { TodoPatch } from '../lib/todos'
+import type { Category, Todo } from '../types'
 import { TodoItem } from './TodoItem'
 
 type Props = {
   todos: Todo[]
+  categories: Category[]
   today: string
-  emptyMessage: string
   onToggle: (id: string) => void
-  onUpdate: (id: string, patch: TodoPatch) => void
+  onOpen: (id: string) => void
   onRemove: (id: string) => void
 }
 
-export function TodoList({ todos, today, emptyMessage, onToggle, onUpdate, onRemove }: Props) {
-  if (todos.length === 0) {
-    return <p className="empty">{emptyMessage}</p>
-  }
-
+export function TodoList({ todos, categories, today, onToggle, onOpen, onRemove }: Props) {
   return (
     <ul className="todo-list">
       {todos.map((todo) => (
         <TodoItem
           key={todo.id}
           todo={todo}
+          categories={categories}
           today={today}
           onToggle={onToggle}
-          onUpdate={onUpdate}
+          onOpen={onOpen}
           onRemove={onRemove}
         />
       ))}

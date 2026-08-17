@@ -1,26 +1,69 @@
-/** 優先度。MVP では常に 'normal'、UI は第2弾で追加する。 */
 export type Priority = 'high' | 'normal' | 'low'
+
+export type Subtask = {
+  id: string
+  title: string
+  done: boolean
+}
+
+/** カテゴリの色。実際の色値は index.css の --cat-* トークンで定義する。 */
+export type CategoryColor =
+  | 'blue'
+  | 'green'
+  | 'orange'
+  | 'purple'
+  | 'red'
+  | 'teal'
+  | 'pink'
+  | 'gray'
+
+export type Category = {
+  id: string
+  name: string
+  color: CategoryColor
+}
 
 export type Todo = {
   id: string
   title: string
   done: boolean
-  /** 'YYYY-MM-DD'（ローカル日付、時刻なし）。未設定は null。 */
+  /** 'YYYY-MM-DD'（ローカル日付）。未設定は null。 */
   dueDate: string | null
+  /** 'HH:MM'（ローカル時刻）。未設定なら Settings.defaultNotifyTime を使う。 */
+  dueTime: string | null
   /** ISO 8601 */
   createdAt: string
   updatedAt: string
   completedAt: string | null
-
-  // --- 第2弾用の枠。MVP では既定値のまま、UI は出さない ---
-  priority: Priority
-  tags: string[]
+  /** 絵文字 1 文字。'' はアイコンなし。 */
+  icon: string
+  /** 排他。null は未分類。 */
+  categoryId: string | null
   notes: string
+  subtasks: Subtask[]
+  /** 通知を出した時刻。重複通知を防ぐために記録する。 */
+  notifiedAt: string | null
+  priority: Priority
+}
+
+export type Settings = {
+  /** OS 通知を使うか。実際に出せるかは Notification の許可状態にも依る。 */
+  notificationsEnabled: boolean
+  /** 時刻を指定していないタスクを、その日の何時に通知するか。'HH:MM' */
+  defaultNotifyTime: string
 }
 
 export type TodoStore = {
-  schemaVersion: 1
+  schemaVersion: 2
   todos: Todo[]
+  categories: Category[]
+  settings: Settings
 }
 
-export type Filter = 'all' | 'active' | 'today' | 'overdue' | 'done'
+export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'done'
+
+export type Filter = {
+  status: StatusFilter
+  /** null なら全カテゴリ。 */
+  categoryId: string | null
+}
