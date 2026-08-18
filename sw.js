@@ -47,10 +47,22 @@ self.addEventListener('message', (event) => {
   const data = event.data
   if (!data || data.type !== 'cache-now' || !Array.isArray(data.urls)) return
   event.waitUntil(
-    caches.open(CACHE).then((cache) =>
+    caches.open(CACHE).then(async (cache) => {
       // 1 つ失敗しても他を諦めない（addAll は全か無かなので使わない）。
-      Promise.all(data.urls.map((url) => cache.add(url).catch(() => undefined))),
-    ),
+      await Promise.all(data.urls.map((url) => cache.add(url).catch(() => undefined)))
+
+      /*
+       * 今の世代に属さないものを捨てる。
+       * これをしないと、デプロイのたびにハッシュ付きの JS/CSS が積み上がり、
+       * 一つも消えない。容量上限に当たった時点で cache.put が黙って失敗し
+       * （失敗は握り潰している）、「新しい資産が貯まらない」状態へ静かに移る。
+       */
+      const keep = new Set(data.urls.map((url) => new URL(url, self.location.href).href))
+      const start = new URL(self.registration.scope).href
+      keep.add(start)
+      const stale = (await cache.keys()).filter((req) => !keep.has(req.url))
+      await Promise.all(stale.map((req) => cache.delete(req)))
+    }),
   )
 })
 
