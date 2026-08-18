@@ -67,15 +67,26 @@ export function parseBackup(text: string, now: number = Date.now()): ImportResul
  * 「間違えて消したタスクをファイルから戻す」という復旧そのものが、
  * 次の同期で削除として送られ、サーバーからも消える。
  */
-export function mergeBackup(current: TodoStore, incoming: TodoStore): TodoStore {
+export function mergeBackup(current: TodoStore, incoming: TodoStore, now: string): TodoStore {
+  /*
+   * 取り込んだ行の更新時刻を「いま」にする。ファイルの中の古い時刻のままだと、
+   * サーバーへ送る対象（updatedAt > 水位）に入らない。サーバー側に削除済みの
+   * 記録が残っていれば、次の同期で「サーバーの削除のほうが新しい」と判定され、
+   * 戻したはずのものがもう一度消える。
+   */
   const todos = new Map(current.todos.map((t) => [t.id, t]))
   for (const t of incoming.todos) {
     const mine = todos.get(t.id)
-    if (mine === undefined || t.updatedAt > mine.updatedAt) todos.set(t.id, t)
+    if (mine === undefined || t.updatedAt > mine.updatedAt) todos.set(t.id, { ...t, updatedAt: now })
   }
 
+  // カテゴリもタスクと同じ規則にする（既存を無条件に優先すると、
+  // 画面の説明「更新が新しいほうを残します」と食い違う）。
   const categories = new Map(current.categories.map((c) => [c.id, c]))
-  for (const c of incoming.categories) if (!categories.has(c.id)) categories.set(c.id, c)
+  for (const c of incoming.categories) {
+    const mine = categories.get(c.id)
+    if (mine === undefined || c.updatedAt > mine.updatedAt) categories.set(c.id, { ...c, updatedAt: now })
+  }
 
   const known = new Set(categories.keys())
   const restored = new Set([...incoming.todos.map((t) => t.id), ...incoming.categories.map((c) => c.id)])

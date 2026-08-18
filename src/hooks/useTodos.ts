@@ -26,8 +26,11 @@ export function useTodos() {
   const [lastRemoved, setLastRemoved] = useState<Todo | null>(null)
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // 保存できていないこと自体を画面に出す（唯一の保存先が黙って落ちるのを防ぐ）。
+  const [saveFailed, setSaveFailed] = useState(false)
+
   useEffect(() => {
-    save(store)
+    setSaveFailed(!save(store))
   }, [store])
 
   /*
@@ -56,7 +59,7 @@ export function useTodos() {
 
   const actions = useMemo(
     () => ({
-      add: (input: NewTodoInput) => dispatch({ type: 'add', todo: createTodo(input) }),
+      add: (input: NewTodoInput) => dispatch({ type: 'add', todo: createTodo(input), now: now() }),
       update: (id: string, patch: TodoPatch) =>
         dispatch({ type: 'update', id, patch, now: now() }),
       // 繰り返しタスクの次回ぶんを作れるよう、id と今日をあらかじめ渡す。
@@ -134,7 +137,7 @@ export function useTodos() {
   const importStore = useCallback(
     (incoming: TodoStore) => {
       const before = store.todos.length
-      const merged = mergeBackup(store, incoming)
+      const merged = mergeBackup(store, incoming, now())
       dispatch({ type: 'sync:replace', store: merged })
       return merged.todos.length - before
     },
@@ -143,9 +146,9 @@ export function useTodos() {
 
   const undoRemove = useCallback(() => {
     if (lastRemoved === null) return
-    dispatch({ type: 'add', todo: lastRemoved })
+    dispatch({ type: 'add', todo: lastRemoved, now: now() })
     clearUndo()
   }, [lastRemoved, clearUndo])
 
-  return { store, ...actions, remove, importStore, lastRemoved, undoRemove, clearUndo }
+  return { store, ...actions, remove, importStore, lastRemoved, undoRemove, clearUndo, saveFailed }
 }

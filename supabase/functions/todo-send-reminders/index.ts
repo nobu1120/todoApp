@@ -72,7 +72,9 @@ Deno.serve(async (req: Request) => {
 
     let sent = 0
     const staleEndpoints: string[] = []
-    const notifiedIds: string[] = []
+    // 主キーは (user_id, id) なので、id だけで更新すると
+    // 同じ id を持つ別の人の行まで通知済みにしてしまう。
+    const notified = new Map<string, string[]>()
 
     for (const reminder of reminders) {
       const targets = byUser.get(reminder.user_id) ?? []
@@ -104,14 +106,22 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      if (deliveredToAny) notifiedIds.push(reminder.item_id)
+      if (deliveredToAny) {
+        const list = notified.get(reminder.user_id) ?? []
+        list.push(reminder.item_id)
+        notified.set(reminder.user_id, list)
+      }
     }
 
-    if (notifiedIds.length > 0) {
+    const stamp = new Date().toISOString()
+    let notifiedCount = 0
+    for (const [uid, ids] of notified) {
       await admin
         .from('todo_items')
-        .update({ notified_at: new Date().toISOString() })
-        .in('id', notifiedIds)
+        .update({ notified_at: stamp })
+        .eq('user_id', uid)
+        .in('id', ids)
+      notifiedCount += ids.length
     }
 
     if (staleEndpoints.length > 0) {
@@ -120,7 +130,7 @@ Deno.serve(async (req: Request) => {
 
     return Response.json({
       sent,
-      notified: notifiedIds.length,
+      notified: notifiedCount,
       cleaned: staleEndpoints.length,
     })
   } catch (err) {

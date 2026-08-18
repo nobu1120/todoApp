@@ -167,3 +167,19 @@ export async function showTodoNotification(todo: Todo, today: string): Promise<v
     // デスクトップ以外ではここに来る。通知は諦め、アプリの動作は止めない。
   }
 }
+
+/**
+ * すでにこの端末が push を購読しているか。
+ * 新しく許可を求めたり購読を作ったりはしない（起動時に呼ぶため）。
+ */
+export async function existingPushEndpoint(): Promise<string | null> {
+  if (permissionState() !== 'granted') return null
+  try {
+    if (!('serviceWorker' in navigator)) return null
+    const reg = await navigator.serviceWorker.ready
+    const existing = await reg.pushManager.getSubscription()
+    return existing?.endpoint ?? null
+  } catch {
+    return null
+  }
+}

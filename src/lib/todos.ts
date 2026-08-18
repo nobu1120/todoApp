@@ -127,7 +127,7 @@ export function createSubtask(title: string, id: string = newId()): Subtask {
 
 export type Action =
   /** 新規追加と、削除の取り消し（保存しておいた Todo をそのまま戻す）の両方に使う。 */
-  | { type: 'add'; todo: Todo }
+  | { type: 'add'; todo: Todo; now: string }
   | { type: 'update'; id: string; patch: TodoPatch; now: string }
   /** nextId / today は繰り返しタスクの次回ぶんを作るときだけ使う。 */
   | { type: 'toggle'; id: string; now: string; nextId?: string; today?: string }
@@ -205,7 +205,13 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
     case 'add':
       return {
         ...store,
-        todos: [...store.todos, action.todo],
+        /*
+         * 更新時刻を今にする。元の値のままだと push の対象（updatedAt > 水位）に
+         * 入らず、サーバーには消えたままの記録が残る。次の同期で
+         * 「サーバーのほうが新しい削除」と判定され、戻したはずのものが
+         * もう一度消える。
+         */
+        todos: [...store.todos, { ...action.todo, updatedAt: action.now }],
         // 復活させたのだから、消した記録は取り下げる。
         tombstones: store.tombstones.filter((t) => t.id !== action.todo.id),
       }
@@ -402,27 +408,50 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
  * 判定は他と同じく更新時刻の新しいほうを採る。
  */
 export function mergeIncoming(current: TodoStore, incoming: TodoStore): TodoStore {
+  /*
+   * 墓標は両側を合流させる。incoming（同期の開始時点のスナップショット）だけを
+   * 見ると、往復の最中に消したぶんが丸ごと失われる。
+   * 消えたものが画面に戻ってくるうえ、墓標も残らないので
+   * サーバーへ削除が伝わることも二度と無くなる。
+   */
+  const graves = new Map(incoming.tombstones.map((t) => [t.id, t]))
+  for (const mine of current.tombstones) {
+    const theirs = graves.get(mine.id)
+    if (theirs === undefined || mine.deletedAt > theirs.deletedAt) graves.set(mine.id, mine)
+  }
+
   const todos = new Map(incoming.todos.map((t) => [t.id, t]))
-  const removed = new Set(incoming.tombstones.map((t) => t.id))
   for (const mine of current.todos) {
-    // 同期の結果として消えたものを、こちら側の都合で復活させない。
-    if (removed.has(mine.id)) continue
     const theirs = todos.get(mine.id)
-    // 相手が知らない = 往復の間に増えたぶん。新しいほう優先で残す。
     if (theirs === undefined || mine.updatedAt > theirs.updatedAt) todos.set(mine.id, mine)
   }
 
   const categories = new Map(incoming.categories.map((c) => [c.id, c]))
   for (const mine of current.categories) {
-    if (removed.has(mine.id)) continue
     const theirs = categories.get(mine.id)
     if (theirs === undefined || mine.updatedAt > theirs.updatedAt) categories.set(mine.id, mine)
+  }
+
+  /*
+   * 墓標より後に触り直していれば復活、そうでなければ消えたまま。
+   * 判定を「id が墓標にあるか」ではなく時刻で行うのが要点で、
+   * これがないと「消す → すぐ元に戻す」が同期のたびに巻き戻る。
+   */
+  for (const [id, grave] of graves) {
+    const alive = todos.get(id) ?? categories.get(id)
+    if (alive !== undefined && alive.updatedAt > grave.deletedAt) {
+      graves.delete(id)
+      continue
+    }
+    todos.delete(id)
+    categories.delete(id)
   }
 
   return {
     ...incoming,
     todos: [...todos.values()],
     categories: [...categories.values()],
+    tombstones: [...graves.values()],
     settings:
       current.settings.updatedAt > incoming.settings.updatedAt
         ? current.settings

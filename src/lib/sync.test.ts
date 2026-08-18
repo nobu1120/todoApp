@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Settings, Todo, TodoStore } from '../types'
 import { DEFAULT_SETTINGS, emptyStore } from './storage'
 import {
+  fromRemoteCategory,
   fromRemoteSettings,
   fromRemoteTodo,
   mergeStore,
@@ -384,5 +385,98 @@ describe('レビューで見つかった穴（回帰）', () => {
     )
     // 送信時刻を入れると、取り込んだだけの値が常に最新に見えて他端末の変更を潰す。
     expect(row.updated_at).toBe('2026-08-09T00:00:00.000Z')
+  })
+})
+
+/*
+ * サーバーは Postgres の表記で時刻を返す（'2026-08-01T00:00:00.123+00:00'）。
+ * ローカルは toISOString の 'Z' 形式。文字列で比べると
+ * 'Z'(0x5A) > '+'(0x2B) なので、同じ時刻でもローカルが勝ってしまう。
+ * ここが崩れると「変えていないのに毎回送り直す」「サーバーが立てた
+ * notified_at を null で潰す」が同時に起きる。
+ */
+describe('サーバー表記の時刻', () => {
+  const PG = '2026-08-01T00:00:00.123+00:00'
+  const ISO = '2026-08-01T00:00:00.123Z'
+
+  it('文字列のままだとローカルが勝つ（前提の確認）', () => {
+    expect(ISO > PG).toBe(true)
+  })
+
+  it('取り込むと Z 形式に揃う', () => {
+    const t = fromRemoteTodo(remote({ id: 'a', updated_at: PG, created_at: PG }))
+    expect(t.updatedAt).toBe(ISO)
+    expect(t.createdAt).toBe(ISO)
+  })
+
+  it('小数部の無い表記も揃う', () => {
+    const t = fromRemoteTodo(remote({ id: 'a', updated_at: '2026-08-01T00:00:00+00:00' }))
+    expect(t.updatedAt).toBe('2026-08-01T00:00:00.000Z')
+  })
+
+  it('内容が同じなら送り直さない', () => {
+    const mine = todo({ id: 'a', updatedAt: ISO })
+    const result = mergeStore(store({ todos: [mine] }), snapshot([remote({ id: 'a', updated_at: PG })]))
+    expect(result.pushTodos).toEqual([])
+  })
+
+  it('サーバーが立てた notified_at を潰さない', () => {
+    const mine = todo({ id: 'a', updatedAt: ISO, notifiedAt: null })
+    const result = mergeStore(
+      store({ todos: [mine] }),
+      snapshot([remote({ id: 'a', updated_at: PG, notified_at: PG })]),
+    )
+    expect(result.store.todos[0].notifiedAt).toBe(ISO)
+  })
+
+  it('カテゴリも設定も揃う', () => {
+    const cat = fromRemoteCategory({ id: 'c', user_id: USER, name: '仕事', color: 'blue', updated_at: PG, deleted_at: null })
+    expect(cat.updatedAt).toBe(ISO)
+    const s = fromRemoteSettings(
+      { ...toRemoteSettings(DEFAULT_SETTINGS, USER, 'Asia/Tokyo'), updated_at: PG },
+      DEFAULT_SETTINGS,
+    )
+    expect(s.updatedAt).toBe(ISO)
+  })
+
+  it('設定も同着なら取り込みで揺れない', () => {
+    const local = store({ settings: { ...DEFAULT_SETTINGS, theme: 'washi', updatedAt: ISO } })
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [],
+      settings: { ...toRemoteSettings(local.settings, USER, 'Asia/Tokyo'), updated_at: PG },
+    })
+    expect(result.store.settings.theme).toBe('washi')
+  })
+})
+
+describe('サーバーで消えたカテゴリ', () => {
+  const gone = (over: Partial<RemoteCategory> = {}): RemoteCategory => ({
+    id: 'c1', user_id: USER, name: '仕事', color: 'blue',
+    updated_at: '2026-08-01T00:00:00.000Z',
+    deleted_at: '2026-08-02T00:00:00.000Z',
+    ...over,
+  })
+
+  it('こちらが後から改名していれば残して送り直す', () => {
+    const mine = { id: 'c1', name: '仕事(新)', color: 'blue' as const, updatedAt: '2026-08-03T00:00:00.000Z' }
+    const result = mergeStore(store({ categories: [mine] }), snapshot([], [gone()]))
+    expect(result.store.categories).toEqual([mine])
+    expect(result.pushCategories).toEqual([mine])
+  })
+
+  it('こちらが触っていなければ消えたままにする', () => {
+    const mine = { id: 'c1', name: '仕事', color: 'blue' as const, updatedAt: '2026-08-01T00:00:00.000Z' }
+    const result = mergeStore(store({ categories: [mine] }), snapshot([], [gone()]))
+    expect(result.store.categories).toEqual([])
+  })
+
+  it('消えたカテゴリを指すタスクは未分類に落ちる', () => {
+    const mine = { id: 'c1', name: '仕事', color: 'blue' as const, updatedAt: '2026-08-01T00:00:00.000Z' }
+    const result = mergeStore(
+      store({ categories: [mine], todos: [todo({ id: 'a', categoryId: 'c1' })] }),
+      snapshot([], [gone()]),
+    )
+    expect(result.store.todos[0].categoryId).toBeNull()
   })
 })

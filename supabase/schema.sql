@@ -101,6 +101,12 @@ alter table public.todo_settings enable row level security;
 alter table public.todo_push_subscriptions enable row level security;
 alter table public.todo_config enable row level security;  -- ポリシーは作らない
 
+-- ポリシーと publication は if not exists が無いので、貼り直せるよう先に落とす。
+drop policy if exists todo_items_own on public.todo_items;
+drop policy if exists todo_categories_own on public.todo_categories;
+drop policy if exists todo_settings_own on public.todo_settings;
+drop policy if exists todo_push_own on public.todo_push_subscriptions;
+
 create policy todo_items_own on public.todo_items
   for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -128,8 +134,17 @@ revoke all on public.todo_config from authenticated;
  * publication に入れないと、購読しても永久にイベントが来ない。
  * WebSocket の接続自体は成功するので、画面上は正常に見えてしまう。
  */
-alter publication supabase_realtime add table public.todo_items;
-alter publication supabase_realtime add table public.todo_categories;
+do $$
+begin
+  alter publication supabase_realtime add table public.todo_items;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.todo_categories;
+exception when duplicate_object then null;
+end $$;
 
 -- --- 関数 --------------------------------------------------------------------
 

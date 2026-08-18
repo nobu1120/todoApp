@@ -948,3 +948,79 @@ describe('繰り返しの取り消し', () => {
     expect(undone.todos.map((t) => t.id).sort()).toEqual(['r', 'r2'])
   })
 })
+
+describe('往復中の削除', () => {
+  const base = (over: Partial<TodoStore> = {}): TodoStore => ({
+    ...emptyStore, categories: [], ...over,
+  })
+  const t = (id: string, updatedAt: string): Todo => ({
+    id, title: id, done: false, dueDate: null, dueTime: null,
+    createdAt: updatedAt, updatedAt, completedAt: null, icon: '',
+    categoryId: null, notes: '', subtasks: [], notifiedAt: null,
+    priority: 'normal', repeat: 'none', spawnedFrom: null,
+  })
+
+  it('往復の間に消したものが復活しない', () => {
+    // 同期の開始時点のスナップショット（まだ 'a' がある）
+    const incoming = base({ todos: [t('a', '2026-08-01T00:00:00.000Z')] })
+    // 往復の最中に 'a' を消した
+    const current = base({
+      todos: [],
+      tombstones: [{ id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' }],
+    })
+    const merged = mergeIncoming(current, incoming)
+    expect(merged.todos).toEqual([])
+  })
+
+  it('往復の間に立てた墓標を捨てない（次の同期で消しに行けること）', () => {
+    const incoming = base({ todos: [t('a', '2026-08-01T00:00:00.000Z')] })
+    const current = base({
+      todos: [],
+      tombstones: [{ id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' }],
+    })
+    expect(mergeIncoming(current, incoming).tombstones).toEqual([
+      { id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' },
+    ])
+  })
+
+  it('同期の結果として消えたものは、こちらの都合で復活させない', () => {
+    const incoming = base({ todos: [], tombstones: [{ id: 'a', deletedAt: '2026-08-03T00:00:00.000Z' }] })
+    const current = base({ todos: [t('a', '2026-08-02T00:00:00.000Z')] })
+    const merged = mergeIncoming(current, incoming)
+    expect(merged.todos).toEqual([])
+    expect(merged.tombstones).toEqual([{ id: 'a', deletedAt: '2026-08-03T00:00:00.000Z' }])
+  })
+
+  it('墓標より後に編集し直していれば残る', () => {
+    const incoming = base({ todos: [], tombstones: [{ id: 'a', deletedAt: '2026-08-01T00:00:00.000Z' }] })
+    const current = base({ todos: [t('a', '2026-08-05T00:00:00.000Z')] })
+    const merged = mergeIncoming(current, incoming)
+    expect(merged.todos.map((x) => x.id)).toEqual(['a'])
+    expect(merged.tombstones).toEqual([])
+  })
+
+  it('墓標は id ごとに新しいほうへ寄せ、重複しない', () => {
+    const incoming = base({ tombstones: [{ id: 'a', deletedAt: '2026-08-01T00:00:00.000Z' }] })
+    const current = base({ tombstones: [{ id: 'a', deletedAt: '2026-08-04T00:00:00.000Z' }] })
+    expect(mergeIncoming(current, incoming).tombstones).toEqual([
+      { id: 'a', deletedAt: '2026-08-04T00:00:00.000Z' },
+    ])
+  })
+})
+
+describe('元に戻す', () => {
+  it('復活させたタスクは更新時刻が進む（次の同期でサーバーへ伝わる）', () => {
+    const removed: Todo = {
+      id: 'a', title: '請求書', done: false, dueDate: null, dueTime: null,
+      createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z',
+      completedAt: null, icon: '', categoryId: null, notes: '', subtasks: [],
+      notifiedAt: null, priority: 'normal', repeat: 'none', spawnedFrom: null,
+    }
+    const after = storeReducer(
+      { ...emptyStore, categories: [], todos: [], tombstones: [{ id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' }] },
+      { type: 'add', todo: removed, now: '2026-08-03T00:00:00.000Z' },
+    )
+    expect(after.todos[0].updatedAt).toBe('2026-08-03T00:00:00.000Z')
+    expect(after.tombstones).toEqual([])
+  })
+})

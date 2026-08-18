@@ -72,6 +72,25 @@ export function hasStoredSession(): boolean {
   }
 }
 
+/**
+ * 昔のプロジェクトのセッションを片付ける。
+ *
+ * Supabase は 'sb-<プロジェクト>-auth-token' に置くので、移行すると
+ * 古い鍵で署名された使えないトークンが端末に残り続ける。読み間違えることは
+ * ないが（ref は SUPABASE_URL から導く）、掃除もされないので消しておく。
+ */
+export function forgetOtherProjects(): void {
+  try {
+    const ref = new URL(SUPABASE_URL).hostname.split('.')[0]
+    const stale = Object.keys(localStorage).filter(
+      (key) => key.startsWith('sb-') && !key.startsWith(`sb-${ref}-`),
+    )
+    for (const key of stale) localStorage.removeItem(key)
+  } catch {
+    // localStorage が使えない環境では何もしない。
+  }
+}
+
 /** この端末の時間帯。期限の「その土地の時刻」をサーバーが解釈するのに要る。 */
 export function localTimeZone(): string {
   try {

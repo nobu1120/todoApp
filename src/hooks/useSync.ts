@@ -11,7 +11,7 @@ import {
   type RemoteSettings,
   type RemoteTodo,
 } from '../lib/sync'
-import { subscribeToPush, unsubscribeFromPush } from '../lib/notify'
+import { existingPushEndpoint, subscribeToPush, unsubscribeFromPush } from '../lib/notify'
 import { parseAuthLink } from '../lib/authLink'
 
 export type SyncStatus = 'off' | 'syncing' | 'synced' | 'error'
@@ -87,6 +87,14 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     setError(null)
     try {
       const supabase = await getSupabase()
+      /*
+       * 水位は「これ以降に触ったものは未送信」と言い切れる時刻でなければ
+       * ならないので、問い合わせを投げる前に決める。取り込んだあとに決めると、
+       * 往復している数百 ms のあいだの編集が push の対象から外れたまま
+       * 水位だけ越えてしまい、その端末にしか存在しない状態で固定される。
+       * 多少送り直しが増えるほうが、取りこぼすよりはるかに安全。
+       */
+      const now = new Date().toISOString()
       const [todos, categories, settings] = await Promise.all([
         supabase.from('todo_items').select('*').eq('user_id', userId),
         supabase.from('todo_categories').select('*').eq('user_id', userId),
@@ -102,8 +110,6 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
         categories: (categories.data ?? []) as RemoteCategory[],
         settings: (settings.data ?? null) as RemoteSettings | null,
       })
-
-      const now = new Date().toISOString()
 
       /*
        * 送信は「1 つ失敗したら全部やめる」にしない。
@@ -179,8 +185,9 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
 
     setStatus('syncing')
     try {
-      const supabase = await getSupabase()
+      // fullSync と同じ理由で、通信を始める前に水位を決める。
       const now = new Date().toISOString()
+      const supabase = await getSupabase()
 
       /*
        * ここも「失敗しても止めない、ただし必ず報せる」。
@@ -347,6 +354,35 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     setPushReady(false)
     setLastSyncedAt(null)
   }, [])
+
+  /*
+   * 起動時に「この端末はもう登録済みか」を思い出す。
+   * 覚えていないと、再読み込みのたびに pushReady が false に戻り、
+   * 画面内タイマーによる通知とサーバーからの push が二重に鳴る
+   * （設定画面も「まだ登録されていません」と嘘をつく）。
+   */
+  useEffect(() => {
+    if (userId === null) {
+      setPushReady(false)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const endpoint = await existingPushEndpoint()
+      if (cancelled || endpoint === null) return
+      const supabase = await getSupabase()
+      const { data } = await supabase
+        .from('todo_push_subscriptions')
+        .select('endpoint')
+        .eq('user_id', userId)
+        .eq('endpoint', endpoint)
+        .maybeSingle()
+      if (!cancelled && data !== null) setPushReady(true)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
 
   /** この端末を push の宛先として登録する。ログイン済みでないと意味がない。 */
   const registerPush = useCallback(async () => {

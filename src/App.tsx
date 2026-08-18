@@ -48,8 +48,15 @@ export default function App() {
   const [selecting, setSelecting] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [openId, setOpenId] = useState<string | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [accountOpen, setAccountOpen] = useState(false)
+  /*
+   * 開いているドロワーは 1 枚だけ。独立した真偽値 2 つにしていると
+   * 両方 true になりえて、履歴（pushState）が二重に積まれる。
+   */
+  const [drawer, setDrawer] = useState<'settings' | 'account' | null>(null)
+  const settingsOpen = drawer === 'settings'
+  const accountOpen = drawer === 'account'
+  const setSettingsOpen = (open: boolean) => setDrawer(open ? 'settings' : null)
+  const setAccountOpen = (open: boolean) => setDrawer(open ? 'account' : null)
   const [showDone, setShowDone] = useState(false)
   const [view, setView] = useState<ViewMode>('list')
   const today = useToday()
@@ -149,7 +156,10 @@ export default function App() {
   // listener からは常に最新のストアを見る。空の依存配列に閉じ込めると、
   // 開いた後に追加・同期されたタスクを見つけられない。
   const todoRef = useRef(todo)
-  todoRef.current = todo
+  // レンダー中に書き換えるとレンダーが純粋でなくなるので effect で合わせる。
+  useEffect(() => {
+    todoRef.current = todo
+  })
 
   useEffect(() => {
     const done = (id: string) => {

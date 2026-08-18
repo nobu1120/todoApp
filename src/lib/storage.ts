@@ -67,6 +67,15 @@ function parseSubtask(value: unknown): Subtask | null {
  * localStorage の中身は「外から書き換えられうる、信用できない JSON」として扱う。
  * 1 件ずつ検証し、壊れている行だけ捨てる（全体を捨てない）。
  */
+/*
+ * 日時として読めるか。
+ * 同期の判定は全部この文字列の大小比較なので、壊れた値を通すと厄介。
+ * 'zzz' のような文字は辞書順であらゆる ISO 文字列より大きく、
+ * その行が last-write-wins で永久に勝ち続けて毎回送り直される。
+ */
+const isISOTime = (v: unknown): v is string =>
+  typeof v === 'string' && !Number.isNaN(Date.parse(v))
+
 function parseTodo(value: unknown): Todo | null {
   if (typeof value !== 'object' || value === null) return null
   const raw = value as Record<string, unknown>
@@ -81,7 +90,7 @@ function parseTodo(value: unknown): Todo | null {
     dueDate !== null && typeof raw.dueTime === 'string' && HM_RE.test(raw.dueTime)
       ? raw.dueTime
       : null
-  const createdAt = asString(raw.createdAt, new Date().toISOString())
+  const createdAt = isISOTime(raw.createdAt) ? raw.createdAt : new Date().toISOString()
   const done = raw.done === true
 
   return {
@@ -91,8 +100,8 @@ function parseTodo(value: unknown): Todo | null {
     dueDate,
     dueTime,
     createdAt,
-    updatedAt: asString(raw.updatedAt, createdAt),
-    completedAt: done && typeof raw.completedAt === 'string' ? raw.completedAt : null,
+    updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : createdAt,
+    completedAt: done && isISOTime(raw.completedAt) ? raw.completedAt : null,
     // 絵文字 1 つを想定。長すぎる文字列は表示が崩れるので弾く。
     icon: typeof raw.icon === 'string' && raw.icon.length <= 8 ? raw.icon : '',
     categoryId: typeof raw.categoryId === 'string' && raw.categoryId !== '' ? raw.categoryId : null,
@@ -100,7 +109,7 @@ function parseTodo(value: unknown): Todo | null {
     subtasks: Array.isArray(raw.subtasks)
       ? raw.subtasks.map(parseSubtask).filter((s): s is Subtask => s !== null)
       : [],
-    notifiedAt: typeof raw.notifiedAt === 'string' ? raw.notifiedAt : null,
+    notifiedAt: isISOTime(raw.notifiedAt) ? raw.notifiedAt : null,
     priority: PRIORITIES.includes(raw.priority as Priority) ? (raw.priority as Priority) : 'normal',
     repeat: REPEATS.includes(raw.repeat as Repeat) ? (raw.repeat as Repeat) : 'none',
     spawnedFrom: typeof raw.spawnedFrom === 'string' ? raw.spawnedFrom : null,
@@ -122,9 +131,6 @@ function parseCategory(value: unknown): Category | null {
     updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : new Date(0).toISOString(),
   }
 }
-
-const isISOTime = (v: unknown): v is string =>
-  typeof v === 'string' && !Number.isNaN(Date.parse(v))
 
 export function parseSettings(value: unknown): Settings {
   if (typeof value !== 'object' || value === null) return DEFAULT_SETTINGS
@@ -213,10 +219,20 @@ export function load(): TodoStore {
   }
 }
 
-export function save(store: TodoStore): void {
+/**
+ * 保存できたかを返す。
+ *
+ * ログインしていない使い方では localStorage が唯一の保存先なので、
+ * ここが黙って失敗すると（容量超過・プライベートブラウジング）、
+ * 画面は普通に動いているのに再読み込みした瞬間に全部消える。
+ * 呼ぶ側が結果を見て利用者に報せられるようにしておく。
+ */
+export function save(store: TodoStore): boolean {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    return true
   } catch {
     // 容量超過などは保存を諦める（操作自体はブロックしない）。
+    return false
   }
 }

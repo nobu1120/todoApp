@@ -59,6 +59,23 @@ export type RemoteSettings = {
 /** 'HH:MM:SS' で返ってくることがあるので 'HH:MM' に詰める。 */
 const shortTime = (t: string | null): string | null => (t === null ? null : t.slice(0, 5))
 
+/*
+ * サーバーの時刻を、ローカルと同じ 'Z' 形式に揃える。
+ *
+ * Postgres の timestamptz は '2026-08-01T00:00:00.123+00:00' で返り、
+ * ローカルは toISOString の '...123Z'。同期の判定は全部この文字列の
+ * 大小比較なので、揃えないと 'Z'(0x5A) > '+'(0x2B) で
+ * 「同じ時刻なのにローカルが勝つ」が永久に続く。
+ * 結果として毎回全件を送り直し、サーバーが立てた notified_at も潰れる。
+ */
+function atTime(value: string): string
+function atTime(value: string | null): string | null
+function atTime(value: string | null): string | null {
+  if (value === null) return null
+  const ms = Date.parse(value)
+  return Number.isNaN(ms) ? value : new Date(ms).toISOString()
+}
+
 // --- ローカル → サーバー ------------------------------------------------------
 
 export function toRemoteTodo(todo: Todo, userId: string): RemoteTodo {
@@ -135,7 +152,7 @@ export function fromRemoteSettings(row: RemoteSettings, fallback: Settings): Set
     archiveAfterDays: ARCHIVE_DAYS.includes(row.archive_after_days as number)
       ? (row.archive_after_days as number)
       : fallback.archiveAfterDays,
-    updatedAt: row.updated_at,
+    updatedAt: atTime(row.updated_at),
   }
 }
 
@@ -155,14 +172,14 @@ export function fromRemoteTodo(row: RemoteTodo): Todo {
     done: row.done,
     dueDate: row.due_date,
     dueTime: shortTime(row.due_time),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    completedAt: row.completed_at,
+    createdAt: atTime(row.created_at),
+    updatedAt: atTime(row.updated_at),
+    completedAt: atTime(row.completed_at),
     icon: row.icon,
     categoryId: row.category_id,
     notes: row.notes,
     subtasks,
-    notifiedAt: row.notified_at,
+    notifiedAt: atTime(row.notified_at),
     priority:
       row.priority === 'high' || row.priority === 'low' ? row.priority : 'normal',
     repeat:
@@ -180,13 +197,12 @@ export function fromRemoteCategory(row: RemoteCategory): Category {
     color: COLOR_KEYS.includes(row.color as CategoryColor)
       ? (row.color as CategoryColor)
       : 'gray',
-    updatedAt: row.updated_at,
+    updatedAt: atTime(row.updated_at),
   }
 }
 
 // --- 突き合わせ ---------------------------------------------------------------
 
-const newer = (a: string, b: string) => (a >= b ? a : b)
 
 export type MergeResult = {
   store: TodoStore
@@ -229,14 +245,14 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
 
     if (row.deleted_at !== null) {
       // サーバーで消えている。こちらが後から復活させていない限り、消えたままにする。
-      if (mine !== undefined && mine.updatedAt > row.deleted_at) {
+      if (mine !== undefined && mine.updatedAt > atTime(row.deleted_at)) {
         mergedTodos.set(row.id, mine)
         pushTodos.push(mine)
       }
       continue
     }
 
-    if (grave !== undefined && grave.deletedAt > row.updated_at) {
+    if (grave !== undefined && grave.deletedAt > atTime(row.updated_at)) {
       // こちらで消したほうが新しい。サーバーにも消したと伝える。
       pushDeletedTodoIds.push(row.id)
       continue
@@ -272,9 +288,23 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
     seenCategories.add(row.id)
     const grave = tombstoneById.get(row.id)
 
-    if (row.deleted_at !== null) continue
+    const mineForRow = localCategories.get(row.id)
 
-    if (grave !== undefined && grave.deletedAt > row.updated_at) {
+    if (row.deleted_at !== null) {
+      /*
+       * サーバーで消えている。タスクと同じく、こちらが後から
+       * 触っていれば復活させる。無条件に消すと、他の端末で消した
+       * カテゴリを改名しただけでその変更が黙って失われ、
+       * それを指していたタスクが全部未分類に落ちる。
+       */
+      if (mineForRow !== undefined && mineForRow.updatedAt > atTime(row.deleted_at)) {
+        mergedCategories.set(row.id, mineForRow)
+        pushCategories.push(mineForRow)
+      }
+      continue
+    }
+
+    if (grave !== undefined && grave.deletedAt > atTime(row.updated_at)) {
       pushDeletedCategoryIds.push(row.id)
       continue
     }
@@ -282,7 +312,7 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
     // タスクと同じ規則にする。無条件にサーバーを採ると、
     // この端末での改名・色の変更が毎回巻き戻る。
     const theirs = fromRemoteCategory(row)
-    const mine = localCategories.get(row.id)
+    const mine = mineForRow
     if (mine !== undefined && mine.updatedAt > theirs.updatedAt) {
       mergedCategories.set(row.id, mine)
       pushCategories.push(mine)
@@ -301,7 +331,7 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
   // 更新時刻の新しいほうを採る。同着とサーバー未記録はローカルを残す
   // （この端末で今まさに変えた直後に取り込みが走ることがあるため）。
   const settings: Settings =
-    remote.settings === null || remote.settings.updated_at <= local.settings.updatedAt
+    remote.settings === null || atTime(remote.settings.updated_at) <= local.settings.updatedAt
       ? local.settings
       : fromRemoteSettings(remote.settings, local.settings)
 
@@ -342,4 +372,3 @@ export function tombstonesSince(tombstones: Tombstone[], since: string): Tombsto
   return tombstones.filter((t) => t.deletedAt > since)
 }
 
-export { newer }

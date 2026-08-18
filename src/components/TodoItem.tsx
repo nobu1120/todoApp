@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Category, Todo } from '../types'
 import { progressOf } from '../lib/todos'
 import { findCategory } from '../lib/categories'
@@ -16,7 +17,12 @@ type Props = {
   onSelect?: (id: string) => void
 }
 
-export function TodoItem({
+/*
+ * 行ごとに memo する。ストアが変わるたび全行を描き直していたため、
+ * 設定画面でカテゴリ名を 1 文字打つたび一覧が丸ごと再描画されていた。
+ * 渡している関数は useMemo / useCallback で安定しているので効く。
+ */
+export const TodoItem = memo(function TodoItem({
   todo,
   categories,
   today,
@@ -133,4 +139,4 @@ export function TodoItem({
       </button>
     </li>
   )
-}
+})

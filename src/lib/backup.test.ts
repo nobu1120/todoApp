@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+
+const NOW = '2026-09-01T00:00:00.000Z'
 import type { Todo, TodoStore } from '../types'
 import { emptyStore } from './storage'
 import { backupFileName, mergeBackup, parseBackup, toBackup } from './backup'
@@ -78,31 +80,31 @@ describe('読み込み', () => {
 
 describe('取り込みの併合', () => {
   it('知らないタスクは足す', () => {
-    const merged = mergeBackup(store([todo({ id: 'a' })]), store([todo({ id: 'b' })]))
+    const merged = mergeBackup(store([todo({ id: 'a' })]), store([todo({ id: 'b' })]), NOW)
     expect(merged.todos.map((t) => t.id).sort()).toEqual(['a', 'b'])
   })
 
   it('同じ id は更新が新しいほうを残す', () => {
     const mine = todo({ id: 'a', title: 'こちら', updatedAt: '2026-08-10T00:00:00.000Z' })
     const theirs = todo({ id: 'a', title: 'ファイル', updatedAt: '2026-08-11T00:00:00.000Z' })
-    expect(mergeBackup(store([mine]), store([theirs])).todos[0].title).toBe('ファイル')
+    expect(mergeBackup(store([mine]), store([theirs]), NOW).todos[0].title).toBe('ファイル')
   })
 
   it('古いファイルを読んでも、今のほうが新しければ上書きしない', () => {
     const mine = todo({ id: 'a', title: 'こちら', updatedAt: '2026-08-12T00:00:00.000Z' })
     const theirs = todo({ id: 'a', title: 'ファイル', updatedAt: '2026-08-01T00:00:00.000Z' })
-    expect(mergeBackup(store([mine]), store([theirs])).todos[0].title).toBe('こちら')
+    expect(mergeBackup(store([mine]), store([theirs]), NOW).todos[0].title).toBe('こちら')
   })
 
   it('ファイル側にしか無いカテゴリは足す', () => {
     const current = { ...emptyStore, categories: [] }
     const incoming = { ...emptyStore, categories: [{ id: 'c1', name: '仕事', color: 'blue' as const, updatedAt: '2026-08-01T00:00:00.000Z' }] }
-    expect(mergeBackup(current, incoming).categories).toHaveLength(1)
+    expect(mergeBackup(current, incoming, NOW).categories).toHaveLength(1)
   })
 
   it('どこにも無いカテゴリを指すタスクは未分類に落とす', () => {
     const incoming = { ...emptyStore, categories: [], todos: [todo({ id: 'z', categoryId: 'ghost' })] }
-    const merged = mergeBackup({ ...emptyStore, categories: [] }, incoming)
+    const merged = mergeBackup({ ...emptyStore, categories: [] }, incoming, NOW)
     expect(merged.todos[0].categoryId).toBeNull()
   })
 })
@@ -116,7 +118,7 @@ describe('レビューで見つかった穴（回帰）', () => {
       todos: [],
       tombstones: [{ id: 'gone', kind: 'todo', deletedAt: '2026-03-01T00:00:00.000Z' }],
     }
-    const merged = mergeBackup(current, store([todo({ id: 'gone', title: '戻したい' })]))
+    const merged = mergeBackup(current, store([todo({ id: 'gone', title: '戻したい' })]), NOW)
     expect(merged.todos.map((t) => t.id)).toEqual(['gone'])
     expect(merged.tombstones).toEqual([])
   })
@@ -126,7 +128,7 @@ describe('レビューで見つかった穴（回帰）', () => {
       ...emptyStore,
       tombstones: [{ id: 'other', kind: 'todo', deletedAt: '2026-03-01T00:00:00.000Z' }],
     }
-    const merged = mergeBackup(current, store([todo({ id: 'gone' })]))
+    const merged = mergeBackup(current, store([todo({ id: 'gone' })]), NOW)
     expect(merged.tombstones.map((t) => t.id)).toEqual(['other'])
   })
 
@@ -139,7 +141,7 @@ describe('レビューで見つかった穴（回帰）', () => {
       ...emptyStore,
       settings: { ...emptyStore.settings, defaultNotifyTime: '07:30', updatedAt: '2026-08-01T00:00:00.000Z' },
     }
-    expect(mergeBackup(current, incoming).settings.defaultNotifyTime).toBe('07:30')
+    expect(mergeBackup(current, incoming, NOW).settings.defaultNotifyTime).toBe('07:30')
   })
 
   it('ファイルの設定が古ければ、今の設定を残す', () => {
@@ -151,6 +153,26 @@ describe('レビューで見つかった穴（回帰）', () => {
       ...emptyStore,
       settings: { ...emptyStore.settings, defaultNotifyTime: '09:00', updatedAt: '2026-01-01T00:00:00.000Z' },
     }
-    expect(mergeBackup(current, incoming).settings.defaultNotifyTime).toBe('07:30')
+    expect(mergeBackup(current, incoming, NOW).settings.defaultNotifyTime).toBe('07:30')
+  })
+})
+
+describe('読み込んだものを送り直せるか', () => {
+  it('取り込んだタスクの更新時刻が今になる', () => {
+    const old = todo({ id: 'gone', title: '戻したい', updatedAt: '2026-01-01T00:00:00.000Z' })
+    const merged = mergeBackup({ ...emptyStore, categories: [] }, store([old]), NOW)
+    expect(merged.todos[0].updatedAt).toBe(NOW)
+  })
+
+  it('カテゴリもファイルのほうが新しければ採る', () => {
+    const mine = { id: 'c1', name: '仕事', color: 'blue' as const, updatedAt: '2026-01-01T00:00:00.000Z' }
+    const theirs = { id: 'c1', name: '仕事(新)', color: 'blue' as const, updatedAt: '2026-02-01T00:00:00.000Z' }
+    const merged = mergeBackup(
+      { ...emptyStore, categories: [mine] },
+      { ...emptyStore, categories: [theirs] },
+      NOW,
+    )
+    expect(merged.categories[0].name).toBe('仕事(新)')
+    expect(merged.categories[0].updatedAt).toBe(NOW)
   })
 })
