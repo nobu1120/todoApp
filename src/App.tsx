@@ -5,7 +5,6 @@ import {
   filterTodos,
   matchesQuery,
   matchesStatus,
-  needsAttention,
   sortTodos,
 } from './lib/todos'
 import { cacheCurrentAssets, ensureServiceWorker } from './lib/notify'
@@ -22,7 +21,6 @@ import { AccountButton } from './components/AccountButton'
 import { TodoForm } from './components/TodoForm'
 import { FilterBar } from './components/FilterBar'
 import { TodoList } from './components/TodoList'
-import { ReminderBanner } from './components/ReminderBanner'
 import { Drawer } from './components/Drawer'
 import { TaskDetail } from './components/TaskDetail'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -30,6 +28,7 @@ import { Icon } from './components/Icon'
 import { ViewTabs, type ViewMode } from './components/ViewTabs'
 import { CalendarView } from './components/CalendarView'
 import { currentYearMonth, toYearMonth } from './lib/calendar'
+import { useLocalOnlyNotice } from './hooks/useLocalOnlyNotice'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -134,7 +133,6 @@ export default function App() {
     return result
   }, [todos])
 
-  const attention = useMemo(() => needsAttention(todos, today), [todos, today])
   const openTodo = openId === null ? null : (todos.find((t) => t.id === openId) ?? null)
 
   /**
@@ -209,9 +207,7 @@ export default function App() {
     setSelectedIds(new Set())
   }, [])
 
-  const jump = useCallback((status: StatusFilter) => {
-    setFilter((f) => ({ ...f, status }))
-  }, [])
+  const localOnly = useLocalOnlyNotice(todos.length)
 
   const remaining = countActive(todos)
 
@@ -250,6 +246,7 @@ export default function App() {
       <ViewTabs view={view} onChange={setView} />
 
       {view === 'calendar' ? (
+        <div role="tabpanel" id="view-panel-calendar" aria-labelledby="view-tab-calendar">
         <CalendarView
           todos={todos}
           categories={categories}
@@ -263,8 +260,9 @@ export default function App() {
           onOpen={setOpenId}
           onRemove={todo.remove}
         />
+        </div>
       ) : (
-      <>
+      <div role="tabpanel" id="view-panel-list" aria-labelledby="view-tab-list">
       <DataNotice
         syncError={sync.status === 'error' ? sync.error : null}
         signedIn={sync.session !== null}
@@ -272,9 +270,10 @@ export default function App() {
         count={todos.length}
         onOpenAccount={() => setAccountOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
+        onDismiss={localOnly.dismiss}
+        showLocalOnly={localOnly.show}
       />
 
-      <ReminderBanner overdue={attention.overdue} dueToday={attention.today} onJump={jump} />
 
       <TodoForm
         categories={categories}
@@ -302,7 +301,7 @@ export default function App() {
           </p>
           <p className="empty__title">{EMPTY_MESSAGE[filter.status].title}</p>
           {todos.length === 0 && (
-            <p className="empty__hint">上の欄に入力して Enter を押すと追加できます。</p>
+            <p className="empty__hint">上の欄に入力して ＋ を押すと追加できます。</p>
           )}
         </div>
       ) : active.length === 0 ? (
@@ -354,10 +353,14 @@ export default function App() {
         </section>
       )}
 
-      </>
+      </div>
       )}
 
-      <Drawer open={openTodo !== null} title="タスクの詳細" onClose={() => setOpenId(null)}>
+      <Drawer
+        open={openTodo !== null}
+        title={openTodo?.title.trim() || 'タスクの詳細'}
+        onClose={() => setOpenId(null)}
+      >
         {openTodo !== null && (
           <TaskDetail
             todo={openTodo}
@@ -367,6 +370,7 @@ export default function App() {
             onToggleSubtask={(sid) => todo.toggleSubtask(openTodo.id, sid)}
             onRenameSubtask={(sid, title) => todo.renameSubtask(openTodo.id, sid, title)}
             onRemoveSubtask={(sid) => todo.removeSubtask(openTodo.id, sid)}
+            onToggle={() => todo.toggle(openTodo.id)}
             onRemove={() => {
               todo.remove(openTodo.id)
               setOpenId(null)
@@ -436,7 +440,11 @@ export default function App() {
 
       {todo.lastRemoved !== null && (
         <div className="undo" role="status">
-          <span className="undo__text">「{todo.lastRemoved.title}」を削除しました</span>
+          <span className="undo__text">
+            {todo.lastRemoved.length === 1
+              ? `「${todo.lastRemoved[0].title}」を削除しました`
+              : `${todo.lastRemoved.length} 件を削除しました`}
+          </span>
           <button type="button" onClick={todo.undoRemove}>
             元に戻す
           </button>

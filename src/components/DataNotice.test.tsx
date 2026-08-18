@@ -12,6 +12,8 @@ const props = {
   count: 0,
   onOpenAccount: vi.fn(),
   onOpenSettings: vi.fn(),
+  onDismiss: vi.fn(),
+  showLocalOnly: true,
 }
 
 describe('データの警告', () => {
@@ -20,7 +22,14 @@ describe('データの警告', () => {
     render(<DataNotice {...props} signedIn syncError="タスクの保存: invalid input syntax for type uuid" />)
     expect(screen.getByRole('alert')).toBeTruthy()
     expect(screen.getByText(/同期できていません/)).toBeTruthy()
-    expect(screen.getByText(/invalid input syntax/)).toBeTruthy()
+    // 生の英語ではなく、読める日本語を出す（原文は details の中）。
+    expect(screen.queryByText(/invalid input syntax/)).toBeNull()
+    expect(screen.getByText(/時間をおいて/)).toBeTruthy()
+  })
+
+  it('通信の失敗は「電波を確かめて」と言う', () => {
+    render(<DataNotice {...props} signedIn syncError="TypeError: Failed to fetch" />)
+    expect(screen.getByText(/電波の状態/)).toBeTruthy()
   })
 
   it('同期の失敗は、ログインしていてもいなくても出す', () => {
@@ -32,6 +41,18 @@ describe('データの警告', () => {
     render(<DataNotice {...props} count={3} />)
     expect(screen.getByText(/この端末の中だけ/)).toBeTruthy()
     expect(screen.getByText(/閲覧データを消すと/)).toBeTruthy()
+  })
+
+  it('「あとで」を選んでいるあいだは出さない', () => {
+    const { container } = render(<DataNotice {...props} count={30} showLocalOnly={false} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('「あとで」を押したことは伝わる', () => {
+    const onDismiss = vi.fn()
+    render(<DataNotice {...props} count={30} onDismiss={onDismiss} />)
+    screen.getByRole('button', { name: 'あとで' }).click()
+    expect(onDismiss).toHaveBeenCalled()
   })
 
   it('タスクが無いうちは出さない（初めて開いた人を驚かせない）', () => {
@@ -56,13 +77,18 @@ describe('データの警告', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('その場からログインと書き出しへ行ける', () => {
-    const onOpenAccount = vi.fn()
+  it('その場から控えの書き出しへ行ける', () => {
+    // ログインはヘッダーにあるので、ここには置かない（同じ画面にボタンが 2 つ並ぶ）。
     const onOpenSettings = vi.fn()
-    render(<DataNotice {...props} count={2} onOpenAccount={onOpenAccount} onOpenSettings={onOpenSettings} />)
-    fireEvent.click(screen.getByText('ログイン'))
-    fireEvent.click(screen.getByText('書き出す'))
-    expect(onOpenAccount).toHaveBeenCalled()
+    render(<DataNotice {...props} count={2} onOpenSettings={onOpenSettings} />)
+    fireEvent.click(screen.getByText('控えを書き出す'))
     expect(onOpenSettings).toHaveBeenCalled()
+  })
+
+  it('同期の失敗からはアカウント画面へ行ける', () => {
+    const onOpenAccount = vi.fn()
+    render(<DataNotice {...props} signedIn syncError="失敗" onOpenAccount={onOpenAccount} />)
+    fireEvent.click(screen.getByText('確認'))
+    expect(onOpenAccount).toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { SyncStatus } from '../hooks/useSync'
 import { Icon } from './Icon'
+import { ErrorNote } from './ErrorNote'
 
 type Props = {
   email: string | null
@@ -126,18 +127,20 @@ export function AccountPanel({
           </form>
         )}
 
+        <ErrorNote error={localError} />
+
         <details className="account__fallback">
           <summary>リンクを開いても戻ってこないとき</summary>
           <p className="detail__hint">
             メール内のリンクを<strong>開かずに長押しでコピー</strong>して、ここに貼り付けてください。
-            リダイレクトを経由せずにログインします。
+            ページを移動せずに、そのままログインします。
           </p>
           <form className="account__form" onSubmit={handlePastedLink}>
             <input
               type="text"
               value={pastedLink}
               onChange={(e) => setPastedLink(e.target.value)}
-              placeholder="https://....supabase.co/auth/v1/verify?token=..."
+              placeholder="メールからコピーしたリンクを貼り付け"
               aria-label="ログインリンク"
             />
             <button type="submit" disabled={pasting || pastedLink.trim() === ''}>
@@ -148,8 +151,6 @@ export function AccountPanel({
             一度開いたリンクは使えません。その場合はもう一度リンクを送ってから、コピーしてください。
           </p>
         </details>
-
-        {localError !== null && <p className="detail__hint detail__hint--warn">{localError}</p>}
       </div>
     )
   }
@@ -180,7 +181,10 @@ export function AccountPanel({
         </div>
         <div>
           <dt>閉じている間の通知</dt>
-          <dd>{pushReady ? 'この端末で受け取る' : '未設定（設定 → 通知）'}</dd>
+          <dd>
+            {pushReady ? 'この端末で受け取る' : '未設定'}
+            {!pushReady && <span className="detail__hint">設定 › 通知 から登録できます</span>}
+          </dd>
         </div>
       </dl>
 

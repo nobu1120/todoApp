@@ -22,8 +22,12 @@ export function useTodos() {
     archiveOld(load(), new Date().toISOString()),
   )
 
-  // 直前に削除した Todo。「元に戻す」で丸ごと復元する。
-  const [lastRemoved, setLastRemoved] = useState<Todo | null>(null)
+  /*
+   * 直前に削除した Todo。「元に戻す」で丸ごと復元する。
+   * まとめて削除もここを通す。破壊性が最も高い操作にだけ安全網が無い、
+   * という逆転が起きていた。
+   */
+  const [lastRemoved, setLastRemoved] = useState<Todo[] | null>(null)
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 保存できていないこと自体を画面に出す（唯一の保存先が黙って落ちるのを防ぐ）。
@@ -84,7 +88,6 @@ export function useTodos() {
         }),
       bulkDue: (ids: string[], dueDate: string | null) =>
         dispatch({ type: 'bulk:due', ids, dueDate, now: now() }),
-      bulkRemove: (ids: string[]) => dispatch({ type: 'bulk:remove', ids, now: now() }),
       markNotified: (ids: string[]) => dispatch({ type: 'markNotified', ids, now: now() }),
 
       addSubtask: (id: string, title: string) =>
@@ -117,20 +120,33 @@ export function useTodos() {
     setLastRemoved(null)
   }, [])
 
+  const armUndo = useCallback((targets: Todo[]) => {
+    if (targets.length === 0) return
+    if (undoTimer.current !== null) clearTimeout(undoTimer.current)
+    setLastRemoved(targets)
+    undoTimer.current = setTimeout(() => {
+      undoTimer.current = null
+      setLastRemoved(null)
+    }, UNDO_TIMEOUT_MS)
+  }, [])
+
   const remove = useCallback(
     (id: string) => {
       const target = store.todos.find((todo) => todo.id === id)
       dispatch({ type: 'remove', id, now: now() })
-      if (!target) return
-
-      if (undoTimer.current !== null) clearTimeout(undoTimer.current)
-      setLastRemoved(target)
-      undoTimer.current = setTimeout(() => {
-        undoTimer.current = null
-        setLastRemoved(null)
-      }, UNDO_TIMEOUT_MS)
+      if (target) armUndo([target])
     },
-    [store.todos],
+    [store.todos, armUndo],
+  )
+
+  const bulkRemove = useCallback(
+    (ids: string[]) => {
+      const set = new Set(ids)
+      const targets = store.todos.filter((todo) => set.has(todo.id))
+      dispatch({ type: 'bulk:remove', ids, now: now() })
+      armUndo(targets)
+    },
+    [store.todos, armUndo],
   )
 
   /** 書き出しファイルを取り込む。追加した件数を返す。 */
@@ -146,9 +162,9 @@ export function useTodos() {
 
   const undoRemove = useCallback(() => {
     if (lastRemoved === null) return
-    dispatch({ type: 'add', todo: lastRemoved, now: now() })
+    for (const todo of lastRemoved) dispatch({ type: 'add', todo, now: now() })
     clearUndo()
   }, [lastRemoved, clearUndo])
 
-  return { store, ...actions, remove, importStore, lastRemoved, undoRemove, clearUndo, saveFailed }
+  return { store, ...actions, remove, bulkRemove, importStore, lastRemoved, undoRemove, clearUndo, saveFailed }
 }

@@ -66,7 +66,7 @@ export function DataPanel({ store, onImport }: Props) {
 
       <div className="chip-row">
         <button type="button" onClick={handleExport}>
-          書き出す（JSON）
+          控えを書き出す
         </button>
         <button type="button" onClick={() => fileRef.current?.click()}>
           読み込む
@@ -86,7 +86,7 @@ export function DataPanel({ store, onImport }: Props) {
       </div>
 
       <p className="detail__hint">
-        読み込みは<strong>置き換えではなく追加</strong>です。同じタスクは更新が新しいほうを残します。
+        読み込んでも、いまのタスクは消えません。同じタスクがあれば、あとから直したほうを残します。
       </p>
 
       {message !== null && (

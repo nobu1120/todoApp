@@ -121,38 +121,40 @@
   --display-weight: 700;
   --display-track: 0;
 
-  --bg: #faf7f8;
-  --surface: #ffffff;
-  --surface-2: #f2ecef;
-  --border: #e8dee4;
-  --border-strong: #7d6bb5;
-  --text: #443c42;
-  --text-muted: #73686e;
-  --accent: #7d6bb5;
-  --accent-ink: #ffffff;
-  --alert-bg: #bc4460;
-  --alert-fg: #ffffff;
-  --today-bg: #7d6bb5;
-  --today-fg: #ffffff;
+  /* 名前どおり、生成りと珈琲で組む（白地＋藤色では「ラテ」に見えない）。 */
+  --bg: #f6efe6;
+  --surface: #fffaf3;
+  --surface-2: #efe4d6;
+  --border: #e0d0bd;
+  --border-strong: #8a5a3b;
+  --text: #40312a;
+  --text-muted: #6b5647;
+  --accent: #8a5a3b;
+  --accent-ink: #fffaf3;
+  --alert-bg: #a8362c;
+  --alert-fg: #fffaf3;
+  --today-bg: #8a5a3b;
+  --today-fg: #fffaf3;
 }
 
 [data-appearance='dark'][data-theme='latte'],
 [data-appearance='dark'] [data-theme='latte'] {
   --row-shadow: none;
 
-  --bg: #1b171d;
-  --surface: #262029;
-  --surface-2: #302935;
-  --border: #3a3240;
-  --border-strong: #c3b0e8;
-  --text: #f1eaf3;
-  --text-muted: #a598ac;
-  --accent: #b9a6e6;
-  --accent-ink: #221c28;
-  --alert-bg: #ff92ab;
-  --alert-fg: #2a1d23;
-  --today-bg: #b9a6e6;
-  --today-fg: #221c28;
+  /* ダークも珈琲側へ寄せる（焙煎した豆の色）。 */
+  --bg: #1c1613;
+  --surface: #271f1a;
+  --surface-2: #322822;
+  --border: #40342c;
+  --border-strong: #e0c3a4;
+  --text: #f3ece4;
+  --text-muted: #b0a094;
+  --accent: #dcb083;
+  --accent-ink: #241c16;
+  --alert-bg: #ff9a86;
+  --alert-fg: #2a1a14;
+  --today-bg: #dcb083;
+  --today-fg: #241c16;
 }
 
 /* ---------- 3. 和紙と藍 ---------- */
@@ -352,7 +354,8 @@
   --text-muted: #686187;
   --accent: #c2306a;
   --accent-ink: #ffffff;
-  --alert-bg: #3a3350;
+  /* 期限切れは今日より強い。地の桃〜藤色の上でも浮く赤にする。 */
+  --alert-bg: #b0294f;
   --alert-fg: #ffffff;
   --today-bg: #c2306a;
   --today-fg: #ffffff;
@@ -372,7 +375,7 @@
   --text-muted: #a79fc0;
   --accent: #ff9ec7;
   --accent-ink: #24182b;
-  --alert-bg: #ece7f5;
+  --alert-bg: #ff8095;
   --alert-fg: #24182b;
   --today-bg: #ff9ec7;
   --today-fg: #24182b;
@@ -495,10 +498,11 @@
   --text-muted: #6e6e76;
   --accent: #101014;
   --accent-ink: #ffffff;
+  /* 白黒のまま強さに差をつける。今日は塗らず、期限切れだけ塗る。 */
   --alert-bg: #101014;
   --alert-fg: #ffffff;
-  --today-bg: #101014;
-  --today-fg: #ffffff;
+  --today-bg: transparent;
+  --today-fg: #101014;
 }
 
 [data-appearance='dark'][data-theme='type'],
@@ -514,8 +518,8 @@
   --accent-ink: #0a0a0c;
   --alert-bg: #f2f2f5;
   --alert-fg: #0a0a0c;
-  --today-bg: #f2f2f5;
-  --today-fg: #0a0a0c;
+  --today-bg: transparent;
+  --today-fg: #f2f2f5;
 }
 
 /*
@@ -1100,8 +1104,11 @@ body:has(.app--calendar) {
 
 .calendar__week {
   flex: 1;
-  /* これ以上詰めると数字とマークが重なるので下限を切る */
-  min-height: 26px;
+  /*
+   * 指の標的として 44px を確保する。26px にしていたため、
+   * カレンダーで一番よく押すものが最小の的になっていた。
+   */
+  min-height: 44px;
 }
 
 .calendar__weekday {
@@ -2257,7 +2264,7 @@ body:has(.app--calendar) {
 }
 
 @media (max-width: 480px) {
-  body { padding: 20px 12px 110px; }
+  body { padding: 20px 12px calc(56px + env(safe-area-inset-bottom, 0px)); }
   /* テーマごとの見出しの大きさを保ったまま、狭い画面ぶんだけ落とす。 */
   .app__remaining { font-size: calc(var(--display-size) * 0.92); }
 
@@ -2512,4 +2519,187 @@ body:has(.selection-bar) {
   padding: 7px 12px;
   min-height: 38px;
   font-size: 0.8125rem;
+}
+
+/* ---------- レビューで挙がった詰め ---------- */
+
+/*
+ * プレースホルダ。このアプリの入力欄には可視ラベルが一つも無く、
+ * プレースホルダが唯一のラベルなので、装飾ではなく機能テキスト。
+ * ブラウザ既定（color の約 54%）では全テーマでコントラストが足りない。
+ */
+:where(input, textarea)::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/*
+ * 指の当たり判定を 44px に広げる。
+ * 見た目の高さは変えたくないので、擬似要素だけを伸ばす。
+ */
+:where(.filter, .chip, .sort__item, .segmented__item) {
+  position: relative;
+}
+:where(.filter, .chip, .sort__item, .segmented__item)::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+
+/* iOS のセーフエリア。standalone で端まで描くために viewport-fit=cover と対で使う。 */
+.app__header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.selection-bar,
+.undo {
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * 選択中と完了済みを見分ける。
+ * 選択のチェックを塗ってしまうと完了と同じ絵になり、そのまま
+ * まとめて削除の導線に乗る。塗らずに枠で示し、行は輪郭で囲う。
+ */
+.check--select {
+  background: transparent !important;
+  border: 3px solid var(--border);
+}
+.todo-item.is-selected .check--select {
+  background: transparent !important;
+  border-color: var(--accent);
+}
+.todo-item.is-selected .check--select::after {
+  background: var(--accent);
+}
+.todo-item.is-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 長いタイトルで期限バッジが文章の途中に割り込まないようにする。 */
+.todo-item__due {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.todo-item__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* テーマ見本の名前が折り返しても、カードの高さが揃うようにする。 */
+.theme-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+}
+
+/* カテゴリ名が編集できると分かるようにする（枠が無く見出しに見えていた）。 */
+.category-row__name {
+  border-bottom: 1px dashed var(--border);
+}
+.category-row__name:focus {
+  border-bottom-style: solid;
+  border-bottom-color: var(--accent);
+}
+
+/* 一覧が縦に切れているとき、続きがあることを示す。 */
+.day__body {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 12px), transparent 100%);
+}
+
+/* 詳細ドロワーの完了チェック。 */
+.detail__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.detail__done input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+/* 優先度・繰り返しのチップ。未選択にも枠を与え、押せると分かるようにする。 */
+.chip-row :where(.chip) {
+  border: 1px solid var(--border);
+}
+.chip-row :where(.chip).is-selected {
+  border-color: var(--accent);
+}
+
+/* 繰り返しは 4 つ。3+1 で折り返すと不揃いになるので 2×2 に揃える。 */
+.repeat-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* 失敗の原文。畳んだ中に置く。 */
+.error-note__raw {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+.error-note__raw code {
+  overflow-wrap: anywhere;
+}
+
+/* 設定の畳んだ節。 */
+.settings__fold > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+/* カテゴリの絞り込みは畳んでおく（常時 80px を占めていた）。 */
+.filter-bar__cats > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+/*
+ * 絞り込みの行は折り返さず、横に流す。
+ * 2 段に折り返して 76px を占め、一覧の 1 件目を画面の下へ押し出していた。
+ */
+.filter-bar__row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-bar__row::-webkit-scrollbar {
+  display: none;
+}
+.filter-bar__row > * {
+  flex: 0 0 auto;
+}
+
+/* タブも 44px の的にする。 */
+.view-tab {
+  min-height: 44px;
+}
+
+/*
+ * 狭い画面では、操作系の縦の間を詰めて一覧を上へ引き上げる。
+ * 「今あるタスクを見る」がこのアプリの目的なので、
+ * 初期表示でそれが画面の上半分に来ることを優先する。
+ */
+@media (max-width: 480px) {
+  .app__header { margin-bottom: 12px; }
+  .view-tabs { margin-bottom: 8px; }
+  .todo-form { margin-bottom: 8px; }
+  .filter-bar { margin-bottom: 8px; }
 }

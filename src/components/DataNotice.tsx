@@ -1,4 +1,5 @@
 import { Icon } from './Icon'
+import { friendly } from '../lib/errors'
 
 type Props = {
   /** 同期の失敗内容。null なら失敗していない。 */
@@ -10,6 +11,10 @@ type Props = {
   count: number
   onOpenAccount: () => void
   onOpenSettings: () => void
+  /** 「あとで」を押したときに呼ぶ。しばらく出さなくする。 */
+  onDismiss: () => void
+  /** いま「この端末の中だけ」の報せを出してよいか。 */
+  showLocalOnly: boolean
 }
 
 /**
@@ -28,6 +33,8 @@ export function DataNotice({
   count,
   onOpenAccount,
   onOpenSettings,
+  onDismiss,
+  showLocalOnly,
 }: Props) {
   if (syncError !== null) {
     return (
@@ -38,7 +45,7 @@ export function DataNotice({
         <div className="notice__body">
           <strong>同期できていません。</strong>
           この端末の変更はまだサーバーに届いていません。
-          <span className="notice__detail">{syncError}</span>
+          <span className="notice__detail">{friendly(syncError).message}</span>
         </div>
         <button type="button" onClick={onOpenAccount}>
           確認
@@ -52,7 +59,12 @@ export function DataNotice({
 
   // ログインしていないと、データはこの端末の中だけにある。
   // ブラウザのキャッシュ（サイトデータ）を消すと一緒に消える。
-  if (!signedIn && count > 0) {
+  /*
+   * 常設をやめた。閉じられない警告が毎回 117px を占め続けると
+   * 読まれなくなり、本当に見てほしい同期の失敗（同じ部品）まで
+   * 一緒に無視されるようになる。
+   */
+  if (!signedIn && count > 0 && showLocalOnly) {
     return (
       <div className="notice" role="status">
         <span className="notice__icon" aria-hidden="true">
@@ -64,11 +76,11 @@ export function DataNotice({
             ブラウザの閲覧データを消すと、一緒に消えます。
           </span>
         </div>
-        <button type="button" onClick={onOpenAccount}>
-          ログイン
+        <button type="button" onClick={onOpenSettings}>
+          控えを書き出す
         </button>
-        <button type="button" className="ghost" onClick={onOpenSettings}>
-          書き出す
+        <button type="button" className="ghost" onClick={onDismiss}>
+          あとで
         </button>
       </div>
     )

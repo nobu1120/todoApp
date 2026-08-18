@@ -6,6 +6,7 @@ import { Icon } from './Icon'
 import { ThemePicker } from './ThemePicker'
 import { DataPanel } from './DataPanel'
 import { staleTodos } from '../lib/todos'
+import { THEMES } from '../lib/themes'
 
 type Props = {
   settings: Settings
@@ -67,19 +68,13 @@ export function SettingsPanel({
     setNewCategory('')
   }
 
+  // 畳んだ見出しに現在値を出す（開かなくても何を選んでいるか分かる）。
+  const currentThemeName = THEMES.find((t) => t.id === settings.theme)?.name ?? settings.theme
+  const appearanceLabel =
+    settings.appearance === 'auto' ? '自動' : settings.appearance === 'dark' ? 'ダーク' : 'ライト'
+
   return (
     <div className="settings">
-      <section className="detail__section">
-        <h3 className="detail__label">見た目</h3>
-        <ThemePicker
-          theme={settings.theme}
-          appearance={settings.appearance}
-          resolved={resolvedAppearance}
-          onChangeTheme={(theme) => onUpdateSettings({ theme })}
-          onChangeAppearance={(appearance) => onUpdateSettings({ appearance })}
-        />
-      </section>
-
       <section className="detail__section">
         <h3 className="detail__label">通知</h3>
 
@@ -134,40 +129,6 @@ export function SettingsPanel({
             )}
           </>
         )}
-      </section>
-
-      <section className="detail__section">
-        <h3 className="detail__label">データ</h3>
-        <DataPanel store={store} onImport={onImport} />
-
-        <label className="field">
-          <span className="field__label">古い完了タスクを自動で消す</span>
-          <select
-            value={settings.archiveAfterDays}
-            onChange={(e) => {
-              const days = Number(e.target.value)
-              // 消える件数を先に見せて、そのうえで選ばせる。
-              const willDelete = staleTodos({ ...store, settings: { ...settings, archiveAfterDays: days } }, new Date().toISOString())
-              if (willDelete.length > 0) {
-                const ok = window.confirm(
-                  `いま ${willDelete.length} 件が対象になります。\n次にアプリを開いたときに消え、他の端末とサーバーからも消えます。\n続けますか？`,
-                )
-                if (!ok) return
-              }
-              onUpdateSettings({ archiveAfterDays: days })
-            }}
-          >
-            <option value={0}>消さない</option>
-            <option value={30}>完了から 30 日</option>
-            <option value={90}>完了から 90 日</option>
-            <option value={365}>完了から 1 年</option>
-          </select>
-        </label>
-        <p className="detail__hint">
-          既定は「消さない」です。完了したタスクは放っておくと溜まり続け、同期のたびに
-          全件をやり取りすることになるので、気になったら選んでください。
-          <strong>消えたことは他の端末とサーバーにも伝わり、取り消せません。</strong>
-        </p>
       </section>
 
       <section className="detail__section">
@@ -254,6 +215,52 @@ export function SettingsPanel({
             追加
           </button>
         </form>
+      </section>
+      <section className="detail__section">
+        <details className="settings__fold">
+          <summary className="detail__label">見た目（{currentThemeName}・{appearanceLabel}）</summary>
+        <ThemePicker
+          theme={settings.theme}
+          appearance={settings.appearance}
+          resolved={resolvedAppearance}
+          onChangeTheme={(theme) => onUpdateSettings({ theme })}
+          onChangeAppearance={(appearance) => onUpdateSettings({ appearance })}
+        />
+        </details>
+      </section>
+
+      <section className="detail__section">
+        <h3 className="detail__label">データ</h3>
+        <DataPanel store={store} onImport={onImport} />
+
+        <label className="field">
+          <span className="field__label">古い完了タスクを自動で消す</span>
+          <select
+            value={settings.archiveAfterDays}
+            onChange={(e) => {
+              const days = Number(e.target.value)
+              // 消える件数を先に見せて、そのうえで選ばせる。
+              const willDelete = staleTodos({ ...store, settings: { ...settings, archiveAfterDays: days } }, new Date().toISOString())
+              if (willDelete.length > 0) {
+                const ok = window.confirm(
+                  `いま ${willDelete.length} 件が対象になります。\n次にアプリを開いたときに消え、他の端末とサーバーからも消えます。\n続けますか？`,
+                )
+                if (!ok) return
+              }
+              onUpdateSettings({ archiveAfterDays: days })
+            }}
+          >
+            <option value={0}>消さない</option>
+            <option value={30}>完了から 30 日</option>
+            <option value={90}>完了から 90 日</option>
+            <option value={365}>完了から 1 年</option>
+          </select>
+        </label>
+        <p className="detail__hint">
+          既定は「消さない」です。完了したタスクは放っておくと溜まり続け、同期のたびに
+          全件をやり取りすることになるので、気になったら選んでください。
+          <strong>消えたことは他の端末とサーバーにも伝わり、取り消せません。</strong>
+        </p>
       </section>
     </div>
   )

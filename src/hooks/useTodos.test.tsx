@@ -103,7 +103,7 @@ describe('useTodos', () => {
 
     act(() => result.current.remove(id))
     expect(result.current.store.todos).toHaveLength(0)
-    expect(result.current.lastRemoved?.title).toBe('消す')
+    expect(result.current.lastRemoved?.[0].title).toBe('消す')
 
     act(() => result.current.undoRemove())
     expect(result.current.store.todos).toHaveLength(1)
@@ -154,5 +154,24 @@ describe('useTodos', () => {
 
     act(() => result.current.bulkRemove(['a']))
     expect(result.current.store.todos.map((t) => t.id)).toEqual(['b'])
+  })
+})
+
+describe('まとめて削除', () => {
+  it('取り消せる', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => {
+      result.current.add({ title: 'a' })
+      result.current.add({ title: 'b' })
+      result.current.add({ title: 'c' })
+    })
+    const ids = result.current.store.todos.slice(0, 2).map((t) => t.id)
+
+    act(() => result.current.bulkRemove(ids))
+    expect(result.current.store.todos).toHaveLength(1)
+    expect(result.current.lastRemoved).toHaveLength(2)
+
+    act(() => result.current.undoRemove())
+    expect(result.current.store.todos).toHaveLength(3)
   })
 })

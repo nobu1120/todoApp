@@ -6,6 +6,7 @@ import {
   THEME_IDS,
   isAppearance,
   isThemeId,
+  isDarkOnly,
   resolveAppearance,
 } from './themes'
 import { migrate } from './storage'
@@ -132,5 +133,28 @@ describe('CSS との対応', () => {
   it('CSS に、一覧に無いテーマの定義が残っていない', () => {
     const defined = [...css.matchAll(/\[data-theme='([a-z-]+)'\]/g)].map((m) => m[1])
     for (const id of new Set(defined)) expect(THEME_IDS).toContain(id)
+  })
+})
+
+describe('ダーク専用のテーマ', () => {
+  it('ミッドナイトはダーク専用', () => {
+    expect(isDarkOnly('midnight')).toBe(true)
+    expect(isDarkOnly('fluoro')).toBe(false)
+  })
+
+  it('明暗にライトを選んでもダークのまま', () => {
+    expect(resolveAppearance('light', false, 'midnight')).toBe('dark')
+    expect(resolveAppearance('auto', false, 'midnight')).toBe('dark')
+  })
+
+  it('ほかのテーマは今までどおり', () => {
+    expect(resolveAppearance('light', true, 'fluoro')).toBe('light')
+    expect(resolveAppearance('auto', false, 'glass')).toBe('light')
+  })
+})
+
+describe('テーマの名前', () => {
+  it('3 列のカードで折り返さない長さに収まっている', () => {
+    for (const t of THEMES) expect(t.name.length).toBeLessThanOrEqual(7)
   })
 })

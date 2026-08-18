@@ -28,6 +28,7 @@ type Props = {
   onRenameSubtask: (subtaskId: string, title: string) => void
   onRemoveSubtask: (subtaskId: string) => void
   onRemove: () => void
+  onToggle: () => void
 }
 
 export function TaskDetail({
@@ -39,6 +40,7 @@ export function TaskDetail({
   onRenameSubtask,
   onRemoveSubtask,
   onRemove,
+  onToggle,
 }: Props) {
   const [pickingIcon, setPickingIcon] = useState(false)
   const progress = progressOf(todo)
@@ -55,6 +57,15 @@ export function TaskDetail({
         >
           {todo.icon === '' ? <Icon name="plus" /> : todo.icon}
         </button>
+
+        {/*
+          * 詳細を見て「もう終わってた」と気づいたとき、閉じて一覧へ戻る
+          * 必要が無いようにする。
+          */}
+        <label className="detail__done">
+          <input type="checkbox" checked={todo.done} onChange={onToggle} />
+          <span>完了</span>
+        </label>
 
         <input
           className="detail__title"
@@ -124,7 +135,7 @@ export function TaskDetail({
               className="ghost"
               onClick={() => onUpdate({ dueDate: null, dueTime: null })}
             >
-              クリア
+              期限をなくす
             </button>
           )}
         </div>

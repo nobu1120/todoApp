@@ -98,7 +98,18 @@ export function FilterBar({
         </button>
       </nav>
 
+      {/*
+        * カテゴリの絞り込みは既定で畳む。常時 80px を占めていたため
+        * 一覧の 1 件目が画面のはるか下に押し出されていた。
+        * 絞り込み中は開いた状態で出す（何で絞っているか隠さない）。
+        */}
       {usedCategories.length > 0 && (
+        <details className="filter-bar__cats" open={filter.categoryId !== null}>
+          <summary>
+            {filter.categoryId === null
+              ? 'カテゴリで絞り込む'
+              : (categories.find((c) => c.id === filter.categoryId)?.name ?? 'カテゴリ')}
+          </summary>
         <nav className="filter-bar__row" aria-label="カテゴリで絞り込み">
           <button
             type="button"
@@ -129,6 +140,7 @@ export function FilterBar({
             </button>
           ))}
         </nav>
+        </details>
       )}
     </div>
   )

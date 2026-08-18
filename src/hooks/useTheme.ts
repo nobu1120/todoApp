@@ -35,7 +35,7 @@ function useSystemDark(): boolean {
  */
 export function useTheme(theme: ThemeId, appearance: Appearance): 'light' | 'dark' {
   const systemDark = useSystemDark()
-  const resolved = resolveAppearance(appearance, systemDark)
+  const resolved = resolveAppearance(appearance, systemDark, theme)
 
   useEffect(() => {
     const root = document.documentElement
