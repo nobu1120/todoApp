@@ -438,13 +438,13 @@ export function mergeIncoming(current: TodoStore, incoming: TodoStore): TodoStor
    * これがないと「消す → すぐ元に戻す」が同期のたびに巻き戻る。
    */
   for (const [id, grave] of graves) {
-    const alive = todos.get(id) ?? categories.get(id)
+    const bucket = grave.kind === 'category' ? categories : todos
+    const alive = bucket.get(id)
     if (alive !== undefined && alive.updatedAt > grave.deletedAt) {
       graves.delete(id)
       continue
     }
-    todos.delete(id)
-    categories.delete(id)
+    bucket.delete(id)
   }
 
   return {

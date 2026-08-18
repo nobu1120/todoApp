@@ -137,7 +137,7 @@ describe('storeReducer: タスク', () => {
   const run = (s: TodoStore, ...actions: Action[]) => actions.reduce(storeReducer, s)
 
   it('追加する', () => {
-    expect(run(store([a]), { type: 'add', todo: b }).todos.map((t) => t.id)).toEqual(['a', 'b'])
+    expect(run(store([a]), { type: 'add', todo: b, now: '2026-08-17T00:00:00.000Z' }).todos.map((t) => t.id)).toEqual(['a', 'b'])
   })
 
   it('完了トグルで completedAt を記録し、戻すと消す', () => {
@@ -187,7 +187,7 @@ describe('storeReducer: タスク', () => {
   it('削除し、同じタスクを add で元に戻せる', () => {
     const removed = run(store([a, b]), { type: 'remove', id: 'a', now })
     expect(removed.todos.map((t) => t.id)).toEqual(['b'])
-    expect(run(removed, { type: 'add', todo: a }).todos.map((t) => t.id)).toEqual(['b', 'a'])
+    expect(run(removed, { type: 'add', todo: a, now: '2026-08-17T00:00:00.000Z' }).todos.map((t) => t.id)).toEqual(['b', 'a'])
   })
 
   it('存在しない id は何もしない', () => {
@@ -966,7 +966,7 @@ describe('往復中の削除', () => {
     // 往復の最中に 'a' を消した
     const current = base({
       todos: [],
-      tombstones: [{ id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' }],
+      tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-02T00:00:00.000Z' }],
     })
     const merged = mergeIncoming(current, incoming)
     expect(merged.todos).toEqual([])
@@ -976,23 +976,23 @@ describe('往復中の削除', () => {
     const incoming = base({ todos: [t('a', '2026-08-01T00:00:00.000Z')] })
     const current = base({
       todos: [],
-      tombstones: [{ id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' }],
+      tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-02T00:00:00.000Z' }],
     })
     expect(mergeIncoming(current, incoming).tombstones).toEqual([
-      { id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' },
+      { id: 'a', kind: 'todo' as const, deletedAt: '2026-08-02T00:00:00.000Z' },
     ])
   })
 
   it('同期の結果として消えたものは、こちらの都合で復活させない', () => {
-    const incoming = base({ todos: [], tombstones: [{ id: 'a', deletedAt: '2026-08-03T00:00:00.000Z' }] })
+    const incoming = base({ todos: [], tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-03T00:00:00.000Z' }] })
     const current = base({ todos: [t('a', '2026-08-02T00:00:00.000Z')] })
     const merged = mergeIncoming(current, incoming)
     expect(merged.todos).toEqual([])
-    expect(merged.tombstones).toEqual([{ id: 'a', deletedAt: '2026-08-03T00:00:00.000Z' }])
+    expect(merged.tombstones).toEqual([{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-03T00:00:00.000Z' }])
   })
 
   it('墓標より後に編集し直していれば残る', () => {
-    const incoming = base({ todos: [], tombstones: [{ id: 'a', deletedAt: '2026-08-01T00:00:00.000Z' }] })
+    const incoming = base({ todos: [], tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-01T00:00:00.000Z' }] })
     const current = base({ todos: [t('a', '2026-08-05T00:00:00.000Z')] })
     const merged = mergeIncoming(current, incoming)
     expect(merged.todos.map((x) => x.id)).toEqual(['a'])
@@ -1000,10 +1000,10 @@ describe('往復中の削除', () => {
   })
 
   it('墓標は id ごとに新しいほうへ寄せ、重複しない', () => {
-    const incoming = base({ tombstones: [{ id: 'a', deletedAt: '2026-08-01T00:00:00.000Z' }] })
-    const current = base({ tombstones: [{ id: 'a', deletedAt: '2026-08-04T00:00:00.000Z' }] })
+    const incoming = base({ tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-01T00:00:00.000Z' }] })
+    const current = base({ tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-04T00:00:00.000Z' }] })
     expect(mergeIncoming(current, incoming).tombstones).toEqual([
-      { id: 'a', deletedAt: '2026-08-04T00:00:00.000Z' },
+      { id: 'a', kind: 'todo' as const, deletedAt: '2026-08-04T00:00:00.000Z' },
     ])
   })
 })
@@ -1017,7 +1017,7 @@ describe('元に戻す', () => {
       notifiedAt: null, priority: 'normal', repeat: 'none', spawnedFrom: null,
     }
     const after = storeReducer(
-      { ...emptyStore, categories: [], todos: [], tombstones: [{ id: 'a', deletedAt: '2026-08-02T00:00:00.000Z' }] },
+      { ...emptyStore, categories: [], todos: [], tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-02T00:00:00.000Z' }] },
       { type: 'add', todo: removed, now: '2026-08-03T00:00:00.000Z' },
     )
     expect(after.todos[0].updatedAt).toBe('2026-08-03T00:00:00.000Z')
