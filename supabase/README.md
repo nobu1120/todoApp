@@ -22,3 +22,26 @@
 
 Supabase 側を変えたら、必ず `schema.sql` も更新してください。
 本番にしか無い定義を作らないことが、この置き場の目的です。
+
+## 移行の記録（quiz → 専用プロジェクト）
+
+Pro プランに移ったのを機に、quiz プロジェクトへの相乗りをやめた。
+
+| | 旧 | 新 |
+|---|---|---|
+| ref | `roofopskzyfpttnsyuwu`（quiz と同居） | `agusbaypthehohpqaigc` |
+| auth のユーザー id | `8631441c-…` | **同じ**（同じ uuid で作り直した） |
+| VAPID 鍵 | | **同じ**（端末の通知登録がそのまま生きる） |
+
+`auth.users` を同じ uuid で作り直したので、`user_id` の付け替えは要らなかった。
+移送後、両プロジェクトの todo 一式（items / categories / settings /
+push_subscriptions / config / auth ユーザー = 13 行）の md5 が一致することを
+確認したうえで、quiz 側の `todo_` の表・関数・cron・publication を落とした。
+quiz 自身のもの（`profiles` `attempts` `questions` など）と `auth.users` は触っていない。
+
+残っている手作業:
+
+- quiz 側の Edge Function `todo-send-reminders` は API から消せないため、
+  410 を返すだけのスタブに差し替えてある。管理画面から削除してよい。
+- 新プロジェクトの Authentication → URL Configuration
+  （Site URL と Redirect URLs）は管理画面でしか設定できない。README を参照。
