@@ -204,10 +204,15 @@
   --radius: 11px;
   --radius-sm: 8px;
   --row-bg: var(--surface);
+  /*
+   * 密度で性格を出す。色だけ違う「もう 1 つの標準テーマ」になっていたので、
+   * 行を詰めて、暗い場所で一覧をひと目で見渡すための見た目にする。
+   */
   --row-line: transparent;
-  --row-gap: 6px;
-  --row-radius: 12px;
+  --row-gap: 3px;
+  --row-radius: 10px;
   --list-rule: none;
+  --display-track: -0.03em;
 
   --bg: #f2f5f9;
   --surface: #ffffff;
@@ -439,6 +444,14 @@
   --row-radius: 16px;
   --list-rule: none;
   --display-weight: 800;
+  /*
+   * 70 年代の印刷物は、字が太く・広く・地が暖色のグラデーション。
+   * 角丸だけでは標準テーマの色違いにしかならないので、
+   * 書体と字送りと地の色で性格を出す。
+   */
+  --display-track: 0.06em;
+  --font: var(--f-maru);
+  --bg-image: linear-gradient(170deg, #f9e6c6 0%, #f6ead4 45%, #efdcc8 100%);
 
   --bg: #f6ead4;
   --surface: #fdf6e8;

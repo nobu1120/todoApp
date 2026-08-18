@@ -48,7 +48,14 @@ export const emptyStore: TodoStore = {
 }
 
 const PRIORITIES: Priority[] = ['high', 'normal', 'low']
-const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly']
+const REPEATS: Repeat[] = [
+  'none',
+  'daily',
+  'weekday',
+  'weekly',
+  'monthly',
+  'monthly-weekday',
+]
 const SORT_MODES: SortMode[] = ['due', 'priority']
 /** 設定で選べる保存期間。ここに無い値は既定に落とす。 */
 export const ARCHIVE_DAYS = [0, 30, 90, 365]

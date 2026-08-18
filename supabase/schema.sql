@@ -49,7 +49,8 @@ create table if not exists public.todo_items (
   deleted_at    timestamptz,
   primary key (user_id, id),
   constraint todo_items_priority_check check (priority in ('high', 'normal', 'low')),
-  constraint todo_items_repeat_check check (repeat in ('none', 'daily', 'weekly', 'monthly'))
+  constraint todo_items_repeat_check
+    check (repeat in ('none', 'daily', 'weekday', 'weekly', 'monthly', 'monthly-weekday'))
 );
 
 create table if not exists public.todo_categories (

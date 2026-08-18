@@ -139,3 +139,26 @@ describe('1行入力の解釈', () => {
     })
   })
 })
+
+describe('繰り返しの拡張', () => {
+  it('平日', () => {
+    expect(p('日報 平日').repeat).toBe('weekday')
+  })
+
+  it('毎月第2火曜', () => {
+    const r = p('資源ごみ 毎月第2火曜')
+    expect(r.repeat).toBe('monthly-weekday')
+    // 2026-08-11 が 8月の第2火曜。すでに過ぎているので 9月の第2火曜。
+    expect(r.dueDate).toBe('2026-09-08')
+    expect(r.title).toBe('資源ごみ')
+  })
+
+  it('今月ぶんがまだなら今月', () => {
+    // 8月の第4金曜は 2026-08-28（今日 8/18 より後）
+    expect(p('締め 毎月第4金曜').dueDate).toBe('2026-08-28')
+  })
+
+  it('全角の数字も拾う', () => {
+    expect(p('会議 毎月第２火曜').repeat).toBe('monthly-weekday')
+  })
+})

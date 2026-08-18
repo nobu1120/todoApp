@@ -2,6 +2,13 @@ import { useState } from 'react'
 import type { Category, Priority, Repeat, Todo } from '../types'
 import type { TodoPatch } from '../lib/todos'
 import { progressOf } from '../lib/todos'
+import { parseISODate, weekdayOrdinal } from '../lib/date'
+
+const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
+
+/** 「第2火曜」のように、その日が月の中で占める位置を日本語にする。 */
+const nthLabel = (iso: string) =>
+  `第${weekdayOrdinal(iso)}${WEEKDAY_NAMES[parseISODate(iso).getDay()]}曜`
 import { Icon } from './Icon'
 import { EmojiPicker } from './EmojiPicker'
 import { SubtaskList } from './SubtaskList'
@@ -15,8 +22,10 @@ const PRIORITIES: { value: Priority; label: string }[] = [
 const REPEATS: { value: Repeat; label: string }[] = [
   { value: 'none', label: '繰り返さない' },
   { value: 'daily', label: '毎日' },
+  { value: 'weekday', label: '平日' },
   { value: 'weekly', label: '毎週' },
   { value: 'monthly', label: '毎月' },
+  { value: 'monthly-weekday', label: '毎月の同じ週' },
 ]
 
 type Props = {
@@ -155,7 +164,9 @@ export function TaskDetail({
                 aria-pressed={todo.repeat === r.value}
               >
                 {r.value !== 'none' && <Icon name="repeat" />}
-                {r.label}
+                {r.value === 'monthly-weekday' && todo.dueDate !== null
+                  ? `毎月 ${nthLabel(todo.dueDate)}`
+                  : r.label}
               </button>
             ))}
           </div>

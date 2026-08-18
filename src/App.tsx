@@ -31,6 +31,7 @@ import { currentYearMonth, toYearMonth } from './lib/calendar'
 import { useLocalOnlyNotice } from './hooks/useLocalOnlyNotice'
 import { parseInput } from './lib/parseInput'
 import { sharedTask } from './lib/shared'
+import { useBackupReminder } from './hooks/useBackupReminder'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -239,6 +240,7 @@ export default function App() {
   }, [justShared])
 
   const localOnly = useLocalOnlyNotice(todos.length)
+  const backup = useBackupReminder(todos.length)
 
   const remaining = countActive(todos)
 
@@ -304,6 +306,32 @@ export default function App() {
         onDismiss={localOnly.dismiss}
         showLocalOnly={localOnly.show}
       />
+
+      {/*
+        * 控えの書き出しを促す。止めた日にデータごと消えるのが
+        * このアプリの唯一の実害なので、習慣だけは仕組みで支える。
+        */}
+      {backup.prompt.show && (
+        <div className="notice" role="status">
+          <span className="notice__icon" aria-hidden="true">
+            <Icon name="download" />
+          </span>
+          <div className="notice__body">
+            {backup.prompt.never
+              ? '控えをまだ一度も書き出していません。'
+              : `控えを書き出してから ${backup.prompt.days} 日経っています。`}
+            <span className="notice__detail">
+              端末を替えたり、ブラウザの閲覧データを消したときに戻せます。
+            </span>
+          </div>
+          <button type="button" onClick={() => setSettingsOpen(true)}>
+            書き出す
+          </button>
+          <button type="button" className="ghost" onClick={backup.dismiss}>
+            あとで
+          </button>
+        </div>
+      )}
 
 
       <TodoForm
@@ -419,6 +447,7 @@ export default function App() {
           resolvedAppearance={resolvedAppearance}
           store={store}
           onImport={todo.importStore}
+          onExported={backup.markBackedUp}
           signedIn={sync.session !== null}
           pushReady={sync.pushReady}
           onUpdateSettings={todo.updateSettings}

@@ -3,7 +3,18 @@ import type { Appearance, ThemeId } from './lib/themes'
 export type Priority = 'high' | 'normal' | 'low'
 
 /** 繰り返しの間隔。'none' は繰り返さない。 */
-export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly'
+/*
+ * 繰り返しの規則。
+ * 'weekday'         = 平日だけ（土日を飛ばす）
+ * 'monthly-weekday' = 毎月の第N◯曜日（第2火曜など）。日にちではなく週で数える
+ */
+export type Repeat =
+  | 'none'
+  | 'daily'
+  | 'weekday'
+  | 'weekly'
+  | 'monthly'
+  | 'monthly-weekday'
 
 /** 一覧の並び順。 */
 export type SortMode = 'due' | 'priority'

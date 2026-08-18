@@ -1,4 +1,14 @@
-import type { Category, Settings, Todo, TodoStore, Tombstone } from '../types'
+import type { Category, Repeat, Settings, Todo, TodoStore, Tombstone } from '../types'
+
+/** サーバーから受け取ってよい繰り返しの値。知らない値は 'none' に落とす。 */
+const REMOTE_REPEATS: Repeat[] = [
+  'none',
+  'daily',
+  'weekday',
+  'weekly',
+  'monthly',
+  'monthly-weekday',
+]
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { ARCHIVE_DAYS, CURRENT_VERSION } from './storage'
 import { isThemeId } from './themes'
@@ -182,10 +192,7 @@ export function fromRemoteTodo(row: RemoteTodo): Todo {
     notifiedAt: atTime(row.notified_at),
     priority:
       row.priority === 'high' || row.priority === 'low' ? row.priority : 'normal',
-    repeat:
-      row.repeat === 'daily' || row.repeat === 'weekly' || row.repeat === 'monthly'
-        ? row.repeat
-        : 'none',
+    repeat: REMOTE_REPEATS.includes(row.repeat as Repeat) ? (row.repeat as Repeat) : 'none',
     spawnedFrom: typeof row.spawned_from === 'string' ? row.spawned_from : null,
   }
 }

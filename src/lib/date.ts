@@ -86,3 +86,30 @@ export function formatDue(
   const label = formatDueLabel(dueDate, today)
   return dueTime === null ? label : `${label} ${dueTime}`
 }
+
+/**
+ * その日が「その月の第何週の◯曜日か」。1 始まり。
+ * 8/11（火）なら 2（第2火曜）。
+ */
+export function weekdayOrdinal(iso: string): number {
+  return Math.floor((parseISODate(iso).getDate() - 1) / 7) + 1
+}
+
+/**
+ * year 年 month 月（1 始まり）の、第 ordinal 週の weekday 曜日。
+ * その月に第 ordinal 週が無ければ、最後のその曜日に丸める
+ * （第5土曜が無い月に飛ばすと、その回だけ抜けてしまう）。
+ */
+export function nthWeekdayOfMonth(
+  year: number,
+  month: number,
+  weekday: number,
+  ordinal: number,
+): string {
+  const first = new Date(year, month - 1, 1)
+  const shift = (weekday - first.getDay() + 7) % 7
+  const lastDay = new Date(year, month, 0).getDate()
+  let day = 1 + shift + (ordinal - 1) * 7
+  while (day > lastDay) day -= 7
+  return toISODate(new Date(year, month - 1, day))
+}

@@ -11,7 +11,16 @@ import type {
   TodoStore,
   Tombstone,
 } from '../types'
-import { addDays, addMonthsToDate, diffInDays, isOverdue, parseISODate, todayISO } from './date'
+import {
+  addDays,
+  addMonthsToDate,
+  diffInDays,
+  isOverdue,
+  nthWeekdayOfMonth,
+  parseISODate,
+  todayISO,
+  weekdayOrdinal,
+} from './date'
 
 export type NewTodoInput = {
   title: string
@@ -76,6 +85,12 @@ export function createTodo(
  * すでに過ぎている場合は、今日より後になるまで進める
  * （3 日ぶん溜めてから消化しても、次が過去日にならないように）。
  */
+/** 土日か。平日繰り返しで飛ばす判定に使う。 */
+const isWeekend = (iso: string): boolean => {
+  const day = parseISODate(iso).getDay()
+  return day === 0 || day === 6
+}
+
 export function nextDueDate(
   dueDate: string | null,
   repeat: Repeat,
@@ -88,20 +103,56 @@ export function nextDueDate(
    * 1 回進めた結果から次を数えると、末日の丸めで日にちが後戻りしていく
    * （1/31 → 2/28 → 3/28 → …）。基準は動かさず、回数だけ増やす。
    */
-  const step = (n: number): string =>
-    repeat === 'daily'
-      ? addDays(dueDate, n)
-      : repeat === 'weekly'
-        ? addDays(dueDate, n * 7)
-        : addMonthsToDate(dueDate, n)
+  /*
+   * 第N曜日は「日にち」ではなく「その月の第何週の何曜日か」で数える。
+   * 元の期限からその位置を読み取り、月だけ進めて同じ位置を取り直す。
+   */
+  const ordinal = weekdayOrdinal(dueDate)
+  const weekday = parseISODate(dueDate).getDay()
+  const base = parseISODate(dueDate)
+
+  const step = (n: number): string => {
+    switch (repeat) {
+      case 'daily':
+        return addDays(dueDate, n)
+      case 'weekday': {
+        // 平日だけ数える。n 営業日ぶん進める。
+        let iso = dueDate
+        for (let i = 0; i < n; i++) {
+          do {
+            iso = addDays(iso, 1)
+          } while (isWeekend(iso))
+        }
+        return iso
+      }
+      case 'weekly':
+        return addDays(dueDate, n * 7)
+      case 'monthly-weekday': {
+        const month = base.getMonth() + n
+        return nthWeekdayOfMonth(
+          base.getFullYear() + Math.floor(month / 12),
+          (((month % 12) + 12) % 12) + 1,
+          weekday,
+          ordinal,
+        )
+      }
+      default:
+        return addMonthsToDate(dueDate, n)
+    }
+  }
 
   // 取りこぼしを詰める。長く放置したぶんは飛ばし、必ず今日より後にする。
   const LIMIT = 1200
   let n = 1
   while (n < LIMIT && step(n) <= today) n++
   const next = step(n)
+  if (next > today) return next
+
   // 上限に当たっても過去日は返さない（生成直後に期限切れで並ぶのを避ける）。
-  return next > today ? next : addDays(today, 1)
+  // ただし平日指定なら土日には落とさない。
+  let fallback = addDays(today, 1)
+  if (repeat === 'weekday') while (isWeekend(fallback)) fallback = addDays(fallback, 1)
+  return fallback
 }
 
 /** 完了した繰り返しタスクから、次回ぶんを作る。 */

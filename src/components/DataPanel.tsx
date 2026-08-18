@@ -5,6 +5,8 @@ import { backupFileName, parseBackup, toBackup } from '../lib/backup'
 type Props = {
   store: TodoStore
   onImport: (incoming: TodoStore) => number
+  /** 書き出せたときに呼ぶ。次に促す時期を数え直すのに使う。 */
+  onExported?: () => void
 }
 
 /**
@@ -12,7 +14,7 @@ type Props = {
  * ログインしない使い方だとデータはこの端末にしか無いので、
  * 持ち出せる形を 1 つ用意しておく。
  */
-export function DataPanel({ store, onImport }: Props) {
+export function DataPanel({ store, onImport, onExported }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -29,6 +31,7 @@ export function DataPanel({ store, onImport }: Props) {
     // 即座に解放するとダウンロードが始まる前に切れることがある。
     setTimeout(() => URL.revokeObjectURL(url), 10_000)
     setMessage({ ok: true, text: `${store.todos.length} 件を書き出しました。` })
+    onExported?.()
   }
 
   /** 人が選ぶファイルなので、いくらでも大きいものが来うる。 */

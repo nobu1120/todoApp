@@ -1,5 +1,5 @@
 import type { Category, Priority, Repeat } from '../types'
-import { addDays, parseISODate, toISODate, todayISO } from './date'
+import { addDays, nthWeekdayOfMonth, parseISODate, toISODate, todayISO } from './date'
 
 /**
  * 1 行の入力から、期限・繰り返し・分類・優先度を読み取る。
@@ -115,6 +115,21 @@ function consume(
   let rest = word
   let hit = false
 
+  // --- 平日 ---
+  if (rest === '平日' || rest === '毎平日') {
+    out.repeat = 'weekday'
+    return true
+  }
+
+  // --- 毎月第N曜日（毎月第2火曜）---
+  const nth = rest.match(/^毎月第([1-5１-５])([日月火水木金土])曜?日?$/)
+  if (nth !== null) {
+    const ordinal = Number(nth[1].replace(/[１-５]/, (c) => String(c.charCodeAt(0) - 0xfee0)))
+    out.repeat = 'monthly-weekday'
+    out.dueDate = nthWeekdayFrom(today, WEEKDAYS.indexOf(nth[2]), ordinal)
+    return true
+  }
+
   // --- 繰り返し（毎日 / 毎週 / 毎月 / 毎週金曜）---
   const repeat = rest.match(/^毎(日|週|月)/)
   if (repeat !== null) {
@@ -226,6 +241,20 @@ function consume(
   // 語の一部だけ拾って残りが出たら、拾わなかったことにする
   // （「明日の準備」を「明日」＋「の準備」に割らない）。
   return hit && rest === ''
+}
+
+/** today 以降で最初に来る「第N◯曜日」。今月ぶんが過ぎていれば翌月。 */
+function nthWeekdayFrom(today: string, weekday: number, ordinal: number): string {
+  const base = parseISODate(today)
+  const thisMonth = nthWeekdayOfMonth(base.getFullYear(), base.getMonth() + 1, weekday, ordinal)
+  if (thisMonth >= today) return thisMonth
+  const month = base.getMonth() + 1
+  return nthWeekdayOfMonth(
+    base.getFullYear() + Math.floor(month / 12),
+    (month % 12) + 1,
+    weekday,
+    ordinal,
+  )
 }
 
 /** その月に day が無ければ末日に丸める（1/31 の翌月など）。 */

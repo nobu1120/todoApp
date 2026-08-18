@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Settings, Todo, TodoStore } from '../types'
-import { diffInDays, formatDue, formatDueLabel, isOverdue, isToday, toHM, toISODate } from './date'
+import { diffInDays, parseISODate, formatDue, formatDueLabel, isOverdue, isToday, toHM, toISODate } from './date'
 import {
   archiveOld,
   countActive,
@@ -1022,5 +1022,64 @@ describe('元に戻す', () => {
     )
     expect(after.todos[0].updatedAt).toBe('2026-08-03T00:00:00.000Z')
     expect(after.tombstones).toEqual([])
+  })
+})
+
+describe('繰り返しの拡張', () => {
+  // 2026-08-18 は火曜。
+  const T = '2026-08-18'
+
+  describe('平日', () => {
+    it('金曜の次は月曜（土日を飛ばす）', () => {
+      expect(nextDueDate('2026-08-21', 'weekday', '2026-08-21')).toBe('2026-08-24')
+    })
+
+    it('平日どうしは翌日', () => {
+      expect(nextDueDate('2026-08-18', 'weekday', T)).toBe('2026-08-19')
+    })
+
+    it('土曜に設定されていても次は月曜', () => {
+      expect(nextDueDate('2026-08-22', 'weekday', '2026-08-22')).toBe('2026-08-24')
+    })
+
+    it('長く放置しても必ず今日より後の平日になる', () => {
+      const next = nextDueDate('2026-01-05', 'weekday', T)
+      expect(next).not.toBeNull()
+      expect(next! > T).toBe(true)
+      const day = parseISODate(next!).getDay()
+      expect(day).toBeGreaterThanOrEqual(1)
+      expect(day).toBeLessThanOrEqual(5)
+    })
+  })
+
+  describe('第N曜日', () => {
+    it('第2火曜は翌月の第2火曜になる', () => {
+      // 2026-08-11 が 8月の第2火曜、2026-09-08 が 9月の第2火曜
+      expect(nextDueDate('2026-08-11', 'monthly-weekday', '2026-08-11')).toBe('2026-09-08')
+    })
+
+    it('第1金曜も同じ規則で進む', () => {
+      // 2026-08-07 が 8月の第1金曜、2026-09-04 が 9月の第1金曜
+      expect(nextDueDate('2026-08-07', 'monthly-weekday', '2026-08-07')).toBe('2026-09-04')
+    })
+
+    it('第5週があっても、無い月は飛ばさず最後のその曜日にする', () => {
+      // 2026-08-29 は 8月の第5土曜。9月に第5土曜は無い（9/26 が第4）
+      const next = nextDueDate('2026-08-29', 'monthly-weekday', '2026-08-29')
+      expect(next).not.toBeNull()
+      expect(parseISODate(next!).getDay()).toBe(6)
+      expect(next! > '2026-08-29').toBe(true)
+    })
+
+    it('放置しても今日より後になる', () => {
+      const next = nextDueDate('2026-01-13', 'monthly-weekday', T)
+      expect(next! > T).toBe(true)
+      expect(parseISODate(next!).getDay()).toBe(2)
+    })
+  })
+
+  it('期限が無ければ繰り返しようがない', () => {
+    expect(nextDueDate(null, 'weekday', T)).toBeNull()
+    expect(nextDueDate(null, 'monthly-weekday', T)).toBeNull()
   })
 })

@@ -17,6 +17,7 @@ type Props = {
   resolvedAppearance: 'light' | 'dark'
   store: TodoStore
   onImport: (incoming: TodoStore) => number
+  onExported?: () => void
   /** ログイン済みかどうか。閉じている間の通知にはログインが要る。 */
   signedIn: boolean
   pushReady: boolean
@@ -36,6 +37,7 @@ export function SettingsPanel({
   resolvedAppearance,
   store,
   onImport,
+  onExported,
   signedIn,
   pushReady,
   onUpdateSettings,
@@ -231,7 +233,7 @@ export function SettingsPanel({
 
       <section className="detail__section">
         <h3 className="detail__label">データ</h3>
-        <DataPanel store={store} onImport={onImport} />
+        <DataPanel store={store} onImport={onImport} onExported={onExported} />
 
         <label className="field">
           <span className="field__label">古い完了タスクを自動で消す</span>
