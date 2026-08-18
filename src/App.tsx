@@ -32,6 +32,7 @@ import { useLocalOnlyNotice } from './hooks/useLocalOnlyNotice'
 import { parseInput } from './lib/parseInput'
 import { sharedTask } from './lib/shared'
 import { useBackupReminder } from './hooks/useBackupReminder'
+import { CompletionMap } from './components/CompletionMap'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -411,6 +412,13 @@ export default function App() {
           )}
         </section>
       )}
+
+      <section className="done-section">
+        <h2 className="done-section__toggle" style={{ cursor: 'default' }}>
+          <span style={{ fontWeight: 700 }}>記録</span>
+        </h2>
+        <CompletionMap todos={todos} today={today} />
+      </section>
 
       </div>
       )}
