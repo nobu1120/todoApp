@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Todo } from '../types'
+import { storeReducer } from './todos'
+import { emptyStore } from './storage'
 import {
   addMonths,
   countByDate,
@@ -10,6 +12,7 @@ import {
   todosOnDate,
   toYearMonth,
   undatedCount,
+  spansDate,
 } from './calendar'
 
 function todo(overrides: Partial<Todo> & { id: string }): Todo {
@@ -192,5 +195,124 @@ describe('undatedCount', () => {
         todo({ id: '4' }),
       ]),
     ).toBe(2)
+  })
+})
+
+describe('着手日から期限までの帯', () => {
+  const t = (over: Partial<Todo> & { id: string }): Todo => todo(over)
+
+  describe('spansDate', () => {
+    it('着手日と期限のあいだの日を含む', () => {
+      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14' })
+      expect(spansDate(x, '2026-08-10')).toBe(true)
+      expect(spansDate(x, '2026-08-12')).toBe(true)
+      expect(spansDate(x, '2026-08-14')).toBe(true)
+    })
+
+    it('範囲の外は含まない', () => {
+      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14' })
+      expect(spansDate(x, '2026-08-09')).toBe(false)
+      expect(spansDate(x, '2026-08-15')).toBe(false)
+    })
+
+    it('着手日が無ければ帯にしない（期限の日だけ）', () => {
+      expect(spansDate(t({ id: 'a', dueDate: '2026-08-14' }), '2026-08-12')).toBe(false)
+    })
+
+    it('期限が無ければ帯にしない（終わりが決まらない）', () => {
+      expect(spansDate(t({ id: 'a', startDate: '2026-08-10' }), '2026-08-12')).toBe(false)
+    })
+
+    it('完了したものは帯にしない', () => {
+      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14', done: true })
+      expect(spansDate(x, '2026-08-12')).toBe(false)
+    })
+
+    it('棚上げしたものは帯にしない', () => {
+      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14', someday: true })
+      expect(spansDate(x, '2026-08-12')).toBe(false)
+    })
+  })
+
+  describe('countByDate', () => {
+    it('件数は期限の日だけ数える（帯で水増ししない）', () => {
+      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14' })
+      const counts = countByDate([x])
+      expect(counts['2026-08-14']?.total).toBe(1)
+      // 帯の途中は印だけで、件数は 0 のまま。
+      expect(counts['2026-08-12']?.total).toBe(0)
+    })
+
+    it('帯の途中の日には span の印が立つ', () => {
+      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14' })
+      const counts = countByDate([x])
+      expect(counts['2026-08-12']?.span).toBe(true)
+      expect(counts['2026-08-10']?.span).toBe(true)
+      expect(counts['2026-08-09']?.span).toBeUndefined()
+    })
+  })
+
+  describe('todosOnDate', () => {
+    it('帯の途中の日にも、その日に着手できるものとして出す', () => {
+      const x = t({ id: 'a', title: '資料作り', startDate: '2026-08-10', dueDate: '2026-08-14' })
+      expect(todosOnDate([x], '2026-08-12').map((t) => t.id)).toEqual(['a'])
+    })
+
+    it('期限の日のものを先に並べる', () => {
+      const span = t({ id: 'span', startDate: '2026-08-10', dueDate: '2026-08-20' })
+      const due = t({ id: 'due', dueDate: '2026-08-12' })
+      expect(todosOnDate([span, due], '2026-08-12').map((t) => t.id)).toEqual(['due', 'span'])
+    })
+
+    it('範囲の外には出さない', () => {
+      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14' })
+      expect(todosOnDate([x], '2026-08-20')).toEqual([])
+    })
+  })
+})
+
+describe('着手日は期限を超えない', () => {
+  const base = { ...emptyStore, categories: [] }
+  const T = '2026-08-18T00:00:00.000Z'
+
+  it('着手日を期限より後にしたら、期限に合わせる', () => {
+    const store = { ...base, todos: [todo({ id: 'a', dueDate: '2026-08-20' })] }
+    const after = storeReducer(store, {
+      type: 'update', id: 'a', patch: { startDate: '2026-08-25' }, now: T,
+    })
+    expect(after.todos[0].startDate).toBe('2026-08-20')
+  })
+
+  it('期限を着手日より前にしたら、着手日を引き戻す', () => {
+    const store = {
+      ...base,
+      todos: [todo({ id: 'a', startDate: '2026-08-20', dueDate: '2026-08-25' })],
+    }
+    const after = storeReducer(store, {
+      type: 'update', id: 'a', patch: { dueDate: '2026-08-15' }, now: T,
+    })
+    expect(after.todos[0].startDate).toBe('2026-08-15')
+  })
+
+  it('期限を外したら着手日はそのまま（縛るものが無くなる）', () => {
+    const store = {
+      ...base,
+      todos: [todo({ id: 'a', startDate: '2026-08-20', dueDate: '2026-08-25' })],
+    }
+    const after = storeReducer(store, {
+      type: 'update', id: 'a', patch: { dueDate: null }, now: T,
+    })
+    expect(after.todos[0].startDate).toBe('2026-08-20')
+  })
+
+  it('正しい順序なら触らない', () => {
+    const store = {
+      ...base,
+      todos: [todo({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-25' })],
+    }
+    const after = storeReducer(store, {
+      type: 'update', id: 'a', patch: { notes: 'メモ' }, now: T,
+    })
+    expect(after.todos[0].startDate).toBe('2026-08-10')
   })
 })

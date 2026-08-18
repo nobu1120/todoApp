@@ -1,5 +1,5 @@
 import type { Todo } from '../types'
-import { toISODate } from './date'
+import { addDays, toISODate } from './date'
 
 /** 'YYYY-MM' 形式の年月。 */
 export type YearMonth = string
@@ -63,17 +63,45 @@ export function formatDayLabel(iso: string): string {
   return `${m}月${d}日(${weekday})`
 }
 
-export type DayCount = { total: number; done: number }
+export type DayCount = {
+  total: number
+  done: number
+  /** 着手日〜期限の途中にあたる日。期限の日そのものとは区別する。 */
+  span?: boolean
+}
+
+/**
+ * その日が「着手日から期限までの途中」にあたるか。
+ *
+ * 期限の日にしか印が付かないと、いつから手を付けられるのかが
+ * カレンダーから読み取れない。両端が決まっているものだけ帯にする。
+ */
+export function spansDate(todo: Todo, iso: string): boolean {
+  if (todo.done || todo.someday) return false
+  if (todo.startDate === null || todo.dueDate === null) return false
+  return todo.startDate <= iso && iso <= todo.dueDate
+}
 
 /** 日付ごとの件数。マスに印を出すために使う。 */
 export function countByDate(todos: Todo[]): Record<string, DayCount> {
   const result: Record<string, DayCount> = {}
+  const touch = (iso: string) => (result[iso] ??= { total: 0, done: 0 })
+
   for (const todo of todos) {
     if (todo.dueDate === null) continue
-    const entry = result[todo.dueDate] ?? { total: 0, done: 0 }
+
+    // 件数は期限の日だけで数える。帯の途中まで数えると、
+    // 1 件のタスクが 30 日ぶんの件数に化ける。
+    const entry = touch(todo.dueDate)
     entry.total++
     if (todo.done) entry.done++
-    result[todo.dueDate] = entry
+
+    // 帯の途中には印だけ立てる。
+    if (todo.startDate === null || todo.done || todo.someday) continue
+    for (let iso = todo.startDate; iso < todo.dueDate; iso = addDays(iso, 1)) {
+      touch(iso).span = true
+    }
+    touch(todo.dueDate).span = true
   }
   return result
 }
@@ -84,8 +112,14 @@ export function countByDate(todos: Todo[]): Record<string, DayCount> {
  */
 export function todosOnDate(todos: Todo[], iso: string): Todo[] {
   return todos
-    .filter((todo) => todo.dueDate === iso)
+    // 期限の日に加えて、着手日〜期限の途中の日にも出す
+    // （「今日これに手を付けられる」が分かるように）。
+    .filter((todo) => todo.dueDate === iso || spansDate(todo, iso))
     .sort((a, b) => {
+      // その日が期限のものを先に。帯の途中より締切のほうが強い。
+      const aDue = a.dueDate === iso
+      const bDue = b.dueDate === iso
+      if (aDue !== bDue) return aDue ? -1 : 1
       if (a.done !== b.done) return a.done ? 1 : -1
       if (a.dueTime !== b.dueTime) {
         if (a.dueTime === null) return 1

@@ -61,8 +61,13 @@ export function Calendar({ month, selected, today, counts, onChangeMonth, onSele
           <div className="calendar__week" role="row" key={i}>
             {week.map((day) => {
               const count = counts[day.date]
-              const pending = count === undefined ? 0 : count.total - count.done
-              const allDone = count !== undefined && pending === 0
+              /*
+               * 帯の途中の日は count が「件数 0・印だけ」で入る。
+               * has で弾かないと、pending が 0 なので「全て完了」の印になってしまう。
+               */
+              const has = count !== undefined && count.total > 0
+              const pending = has ? count.total - count.done : 0
+              const allDone = has && pending === 0
               const [, , dd] = day.date.split('-')
 
               return (
@@ -75,7 +80,8 @@ export function Calendar({ month, selected, today, counts, onChangeMonth, onSele
                     'calendar__day' +
                     (day.inMonth ? '' : ' calendar__day--outside') +
                     (day.date === selected ? ' is-selected' : '') +
-                    (day.date === today ? ' is-today' : '')
+                    (day.date === today ? ' is-today' : '') +
+                    (count?.span === true ? ' has-span' : '')
                   }
                   aria-selected={day.date === selected}
                   onClick={() => onSelect(day.date)}
@@ -83,7 +89,7 @@ export function Calendar({ month, selected, today, counts, onChangeMonth, onSele
                   <span className="calendar__num">{Number(dd)}</span>
                   {/* 件数は点で示す。3 件を超えたら「+」で頭打ちにして、マスを崩さない。 */}
                   <span className="calendar__marks" aria-hidden="true">
-                    {count !== undefined &&
+                    {has &&
                       (allDone ? (
                         <span className="calendar__mark calendar__mark--done" />
                       ) : (
@@ -95,7 +101,7 @@ export function Calendar({ month, selected, today, counts, onChangeMonth, onSele
                         </>
                       ))}
                   </span>
-                  {count !== undefined && (
+                  {has && (
                     <span className="visually-hidden">
                       {pending > 0 ? `未完了 ${pending} 件` : '全て完了'}
                     </span>

@@ -2893,3 +2893,44 @@ body:has(.selection-bar) {
   color: var(--text-muted);
 }
 .map__legend .map__day { width: 10px; height: 10px; }
+
+/*
+ * 着手日から期限までの帯。
+ * 期限の日にしか印が無いと、いつから手を付けられるのかが読み取れない。
+ * マスの下に細い線を通して「この期間に着手できる」を示す。
+ * 件数の点とは別の高さに置き、数と取り違えないようにする。
+ */
+.calendar__day.has-span::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0.42;
+}
+.calendar__day {
+  position: relative;
+}
+
+/* 日別リストの小見出し（期限のものと、着手できるだけのものを分ける）。 */
+.day__section {
+  margin: 12px 0 4px;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/*
+ * タブの中身を包む div が、高さの連鎖を切らないようにする。
+ * ARIA のために role="tabpanel" の箱を足したとき、この箱に何も指定が
+ * 無かったため中身の高さで膨らみ、カレンダーが画面からはみ出していた。
+ * 予定が少ないと収まってしまい、増えたときだけ出る種類の崩れ。
+ */
+.app--calendar > [role='tabpanel'] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

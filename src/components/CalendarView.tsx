@@ -43,7 +43,13 @@ export function CalendarView({
   const counts = useMemo(() => countByDate(todos), [todos])
   const dayTodos = useMemo(() => todosOnDate(todos, selected), [todos, selected])
   const undated = useMemo(() => undatedCount(todos), [todos])
-  const pending = dayTodos.filter((t) => !t.done).length
+  // その日が期限のものと、着手できるだけのものを分ける。
+  const dueHere = useMemo(() => dayTodos.filter((t) => t.dueDate === selected), [dayTodos, selected])
+  const inProgress = useMemo(
+    () => dayTodos.filter((t) => t.dueDate !== selected),
+    [dayTodos, selected],
+  )
+  const pending = dueHere.filter((t) => !t.done).length
 
   return (
     <div className="calendar-view">
@@ -63,7 +69,7 @@ export function CalendarView({
             {selected === today && <span className="day__badge">今日</span>}
           </h2>
           <span className="day__count">
-            {pending > 0 ? `残り ${pending} 件` : dayTodos.length > 0 ? '完了' : '予定なし'}
+            {pending > 0 ? `この日 ${pending} 件` : dayTodos.length > 0 ? '完了' : '予定なし'}
           </span>
         </div>
 
@@ -71,14 +77,36 @@ export function CalendarView({
           {dayTodos.length === 0 ? (
             <p className="day__empty">この日の予定はありません。</p>
           ) : (
-            <TodoList
-              todos={dayTodos}
-              categories={categories}
-              today={today}
-              onToggle={onToggle}
-              onOpen={onOpen}
-              onRemove={onRemove}
-            />
+            <>
+              {dueHere.length > 0 && (
+                <TodoList
+                  todos={dueHere}
+                  categories={categories}
+                  today={today}
+                  onToggle={onToggle}
+                  onOpen={onOpen}
+                  onRemove={onRemove}
+                />
+              )}
+
+              {/*
+                * その日が期限ではないが、着手できる期間に入っているもの。
+                * 混ぜて出すと「今日が締切」と読み違えるので、見出しで分ける。
+                */}
+              {inProgress.length > 0 && (
+                <>
+                  <p className="day__section">この期間に着手できるもの</p>
+                  <TodoList
+                    todos={inProgress}
+                    categories={categories}
+                    today={today}
+                    onToggle={onToggle}
+                    onOpen={onOpen}
+                    onRemove={onRemove}
+                  />
+                </>
+              )}
+            </>
           )}
         </div>
 

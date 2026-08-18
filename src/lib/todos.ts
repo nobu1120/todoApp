@@ -333,6 +333,15 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
         const next = { ...todo, ...patch, updatedAt: action.now }
         // 期限を動かしたら通知はやり直す。
         if (patch.dueDate !== undefined || patch.dueTime !== undefined) next.notifiedAt = null
+        /*
+         * 着手日は期限を超えさせない。
+         * 逆転すると、期限が来るまで一覧から隠れたまま、
+         * 過ぎた瞬間に期限切れとして現れる（＝間に合わなくなってから出てくる）。
+         * どちらを動かしても、着手日のほうを引き戻して辻褄を合わせる。
+         */
+        if (next.dueDate !== null && next.startDate !== null && next.startDate > next.dueDate) {
+          next.startDate = next.dueDate
+        }
         return next
       })
 
