@@ -40,7 +40,6 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     repeat: 'none',
     spawnedFrom: null,
     startDate: null,
-    someday: false,
     ...overrides,
   }
 }
@@ -115,7 +114,6 @@ describe('createTodo', () => {
       repeat: 'none',
       spawnedFrom: null,
       startDate: null,
-      someday: false,
     })
   })
 
@@ -961,7 +959,7 @@ describe('往復中の削除', () => {
     id, title: id, done: false, dueDate: null, dueTime: null,
     createdAt: updatedAt, updatedAt, completedAt: null, icon: '',
     categoryId: null, notes: '', subtasks: [], notifiedAt: null,
-    priority: 'normal', repeat: 'none', spawnedFrom: null, startDate: null, someday: false,
+    priority: 'normal', repeat: 'none', spawnedFrom: null, startDate: null,
   })
 
   it('往復の間に消したものが復活しない', () => {
@@ -1019,7 +1017,7 @@ describe('元に戻す', () => {
       createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z',
       completedAt: null, icon: '', categoryId: null, notes: '', subtasks: [],
       notifiedAt: null, priority: 'normal', repeat: 'none', spawnedFrom: null,
-      startDate: null, someday: false,
+      startDate: null,
     }
     const after = storeReducer(
       { ...emptyStore, categories: [], todos: [], tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-02T00:00:00.000Z' }] },
@@ -1089,15 +1087,15 @@ describe('繰り返しの拡張', () => {
   })
 })
 
-describe('着手日といつか', () => {
+describe('着手日', () => {
   const T = '2026-08-18'
-  const f = (status: 'all' | 'active' | 'today' | 'overdue' | 'done' | 'someday') =>
+  const f = (status: 'all' | 'active' | 'today' | 'overdue' | 'done' | 'waiting') =>
     ({ status, categoryId: null, query: '' }) as Filter
 
   const t = (over: Partial<Todo> & { id: string }) =>
     todo({ ...over })
 
-  describe('着手日', () => {
+  describe('日付', () => {
     it('着手日が先のタスクは未完了の一覧に出ない', () => {
       const later = t({ id: 'a', startDate: '2026-09-01', dueDate: '2026-09-10' })
       expect(filterTodos([later], f('active'), T)).toEqual([])
@@ -1124,7 +1122,7 @@ describe('着手日といつか', () => {
 
     it('出番前のものは「あとで」に集まる（隠したまま忘れないように）', () => {
       const later = t({ id: 'a', startDate: '2026-09-01' })
-      expect(filterTodos([later], f('someday'), T)).toHaveLength(1)
+      expect(filterTodos([later], f('waiting'), T)).toHaveLength(1)
     })
 
     it('着手日が先でも、期限が切れていれば出す（見落とす方が困る）', () => {
@@ -1139,57 +1137,5 @@ describe('着手日といつか', () => {
     })
   })
 
-  describe('いつか', () => {
-    it('いつかのタスクは未完了の一覧に出ない', () => {
-      expect(filterTodos([t({ id: 'a', someday: true })], f('active'), T)).toEqual([])
-    })
 
-    it('「あとで」の絞り込みでだけ出る', () => {
-      const s = t({ id: 'a', someday: true })
-      expect(filterTodos([s], f('someday'), T)).toHaveLength(1)
-      expect(filterTodos([t({ id: 'b' })], f('someday'), T)).toEqual([])
-    })
-
-    it('「すべて」には出さない（作業リストなので）', () => {
-      expect(filterTodos([t({ id: 'a', someday: true })], f('all'), T)).toEqual([])
-    })
-
-    it('完了したものは「いつか」に出ない', () => {
-      const s = t({ id: 'a', someday: true, done: true, completedAt: '2026-08-17T00:00:00.000Z' })
-      expect(filterTodos([s], f('someday'), T)).toEqual([])
-    })
-
-    it('期限が切れていても、いつかなら出さない（自分で棚上げしたもの）', () => {
-      const s = t({ id: 'a', someday: true, dueDate: '2026-08-01' })
-      expect(filterTodos([s], f('overdue'), T)).toEqual([])
-      expect(filterTodos([s], f('active'), T)).toEqual([])
-    })
-  })
-
-  describe('いつかへの切り替え', () => {
-    it('いつかにすると期限と着手日が外れる', () => {
-      const store = {
-        ...emptyStore,
-        categories: [],
-        todos: [todo({ id: 'a', dueDate: T, dueTime: '10:00', startDate: T })],
-      }
-      const after = storeReducer(store, {
-        type: 'update',
-        id: 'a',
-        patch: { someday: true, dueDate: null, dueTime: null, startDate: null },
-        now: '2026-08-18T00:00:00.000Z',
-      })
-      expect(after.todos[0].someday).toBe(true)
-      expect(after.todos[0].dueDate).toBeNull()
-      expect(after.todos[0].startDate).toBeNull()
-    })
-
-    it('いつかを解除すると一覧に戻る', () => {
-      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', someday: true })] }
-      const after = storeReducer(store, {
-        type: 'update', id: 'a', patch: { someday: false }, now: '2026-08-18T00:00:00.000Z',
-      })
-      expect(filterTodos(after.todos, f('all'), T)).toHaveLength(1)
-    })
-  })
 })

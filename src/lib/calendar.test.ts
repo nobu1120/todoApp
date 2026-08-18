@@ -31,7 +31,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     notifiedAt: null,
     priority: 'normal',
     repeat: 'none',
-    spawnedFrom: null, startDate: null, someday: false,
+    spawnedFrom: null, startDate: null,
     ...overrides,
   }
 }
@@ -228,10 +228,6 @@ describe('着手日から期限までの帯', () => {
       expect(spansDate(x, '2026-08-12')).toBe(false)
     })
 
-    it('棚上げしたものは帯にしない', () => {
-      const x = t({ id: 'a', startDate: '2026-08-10', dueDate: '2026-08-14', someday: true })
-      expect(spansDate(x, '2026-08-12')).toBe(false)
-    })
   })
 
   describe('countByDate', () => {

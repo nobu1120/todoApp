@@ -185,20 +185,6 @@ export function TaskDetail({
               期限をなくす
             </button>
           )}
-          <button
-            type="button"
-            className={`chip${todo.someday ? ' is-selected' : ''}`}
-            onClick={() =>
-              onUpdate(
-                todo.someday
-                  ? { someday: false }
-                  : { someday: true, dueDate: null, dueTime: null, startDate: null },
-              )
-            }
-            aria-pressed={todo.someday}
-          >
-            いつか
-          </button>
         </div>
 
         {todo.startDate !== null && todo.startDate > today && (

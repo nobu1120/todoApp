@@ -77,7 +77,7 @@ export type DayCount = {
  * カレンダーから読み取れない。両端が決まっているものだけ帯にする。
  */
 export function spansDate(todo: Todo, iso: string): boolean {
-  if (todo.done || todo.someday) return false
+  if (todo.done) return false
   if (todo.startDate === null || todo.dueDate === null) return false
   return todo.startDate <= iso && iso <= todo.dueDate
 }
@@ -97,7 +97,7 @@ export function countByDate(todos: Todo[]): Record<string, DayCount> {
     if (todo.done) entry.done++
 
     // 帯の途中には印だけ立てる。
-    if (todo.startDate === null || todo.done || todo.someday) continue
+    if (todo.startDate === null || todo.done) continue
     for (let iso = todo.startDate; iso < todo.dueDate; iso = addDays(iso, 1)) {
       touch(iso).span = true
     }

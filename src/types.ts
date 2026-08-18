@@ -60,8 +60,6 @@ export type Todo = {
    * 一覧が「いま見る必要のないもの」で埋まる。
    */
   startDate: string | null
-  /** 棚上げ。日付を決めずに一覧から外す。消したくないが、いまは見たくないもの。 */
-  someday: boolean
   /** 'HH:MM'（ローカル時刻）。未設定なら Settings.defaultNotifyTime を使う。 */
   dueTime: string | null
   /** ISO 8601 */
@@ -127,7 +125,7 @@ export type TodoStore = {
   tombstones: Tombstone[]
 }
 
-export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'someday' | 'done'
+export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'waiting' | 'done'
 
 export type Filter = {
   status: StatusFilter

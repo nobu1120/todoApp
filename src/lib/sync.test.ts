@@ -34,7 +34,6 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     repeat: 'none',
     spawnedFrom: null,
     startDate: null,
-    someday: false,
     ...overrides,
   }
 }

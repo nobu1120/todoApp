@@ -12,7 +12,7 @@ const p = (text: string) => parseInput(text, TODAY, cats)
 describe('1行入力の解釈', () => {
   it('何も無ければ題名だけ', () => {
     expect(p('請求書を出す')).toEqual({
-      title: '請求書を出す', someday: false, dueDate: null, dueTime: null,
+      title: '請求書を出す', dueDate: null, dueTime: null,
       categoryId: null, priority: 'normal', repeat: 'none',
     })
   })
@@ -160,20 +160,5 @@ describe('繰り返しの拡張', () => {
 
   it('全角の数字も拾う', () => {
     expect(p('会議 毎月第２火曜').repeat).toBe('monthly-weekday')
-  })
-})
-
-describe('いつか', () => {
-  it('「いつか」で棚上げになる', () => {
-    const r = p('確定申告の勉強 いつか')
-    expect(r.someday).toBe(true)
-    expect(r.title).toBe('確定申告の勉強')
-    expect(r.dueDate).toBeNull()
-  })
-
-  it('文中の「いつか」は棚上げにしない', () => {
-    const r = p('いつかやりたいこと')
-    expect(r.someday).toBe(false)
-    expect(r.title).toBe('いつかやりたいこと')
   })
 })

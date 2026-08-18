@@ -7,7 +7,7 @@ const done = (id: string, completedAt: string | null): Todo => ({
   id, title: id, done: completedAt !== null, dueDate: null, dueTime: null,
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
   completedAt, icon: '', categoryId: null, notes: '', subtasks: [],
-  notifiedAt: null, priority: 'normal', repeat: 'none', spawnedFrom: null, startDate: null, someday: false,
+  notifiedAt: null, priority: 'normal', repeat: 'none', spawnedFrom: null, startDate: null,
 })
 const at = (date: string, h = 12) => `${date}T${String(h).padStart(2, '0')}:00:00.000Z`
 

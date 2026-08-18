@@ -124,7 +124,6 @@ function parseTodo(value: unknown): Todo | null {
     startDate: typeof raw.startDate === 'string' && ISO_DATE_RE.test(raw.startDate)
       ? raw.startDate
       : null,
-    someday: raw.someday === true,
   }
 }
 

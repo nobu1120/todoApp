@@ -21,7 +21,7 @@ const todo = (patch: Partial<Todo> = {}): Todo => ({
   notifiedAt: null,
   priority: 'normal',
   repeat: 'none',
-  spawnedFrom: null, startDate: null, someday: false,
+  spawnedFrom: null, startDate: null,
   ...patch,
 })
 

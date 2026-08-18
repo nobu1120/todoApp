@@ -29,7 +29,6 @@ export type NewTodoInput = {
   icon?: string
   categoryId?: string | null
   startDate?: string | null
-  someday?: boolean
   priority?: Priority
   repeat?: Repeat
   /** 共有シートから来た参照元 URL など。 */
@@ -62,7 +61,6 @@ export type TodoPatch = Partial<
     | 'priority'
     | 'repeat'
     | 'startDate'
-    | 'someday'
   >
 >
 
@@ -86,7 +84,6 @@ export function createTodo(
     subtasks: [],
     notifiedAt: null,
     startDate: input.startDate ?? null,
-    someday: input.someday ?? false,
     priority: input.priority ?? 'normal',
     repeat: input.repeat ?? 'none',
     spawnedFrom: null,
@@ -572,15 +569,13 @@ export function todosToNotify(todos: Todo[], settings: Settings, now: Date): Tod
 // --- 表示用の絞り込み・並び替え ------------------------------------------------
 
 /**
- * まだ出番が来ていないか。
+ * まだ出番が来ていないか。着手日が先のものを一覧から外す。
  *
- * 棚上げ（いつか）と、着手日が先のものを一覧から外す。
  * ただし**期限を過ぎたものは出す**——着手日より締切のほうが強い。
  * 「まだ始めなくていい」と「もう遅れている」が同時に成り立つときは、
  * 見落とす方が困る。
  */
 export function isWaiting(todo: Todo, today: string): boolean {
-  if (todo.someday === true) return true
   // null / undefined のどちらでも「待っていない」扱いにする。
   if (!todo.startDate || todo.startDate <= today) return false
   // 着手日より前でも、期限切れなら隠さない。
@@ -594,7 +589,7 @@ export function matchesStatus(todo: Todo, status: StatusFilter, today: string): 
        * 「すべて」は既定の画面なので、ここが作業リストになる。
        * 出番前のものまで出すと、着手日を作った意味が無くなる
        * （3 週間後が締切のタスクが今日から居座り続ける）。
-       * 隠したものは 'someday' に集めてあり、件数も出るので忘れない。
+       * 隠したものは 'waiting' に集めてあり、件数も出るので忘れない。
        */
       return !isWaiting(todo, today)
     case 'active':
@@ -602,10 +597,9 @@ export function matchesStatus(todo: Todo, status: StatusFilter, today: string): 
     case 'today':
       return !todo.done && !isWaiting(todo, today) && todo.dueDate === today
     case 'overdue':
-      // 棚上げしたものは、自分で降ろすまで急かさない。
-      return !todo.done && !todo.someday && isOverdue(todo.dueDate, today)
-    case 'someday':
-      // 隠しているもの全部の置き場。着手日待ちと棚上げの両方が入る。
+      return !todo.done && isOverdue(todo.dueDate, today)
+    case 'waiting':
+      // 着手日がまだ来ていないもの。隠したまま忘れないための置き場。
       return !todo.done && isWaiting(todo, today)
     case 'done':
       return todo.done
