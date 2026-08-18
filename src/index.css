@@ -2934,3 +2934,45 @@ body:has(.selection-bar) {
   display: flex;
   flex-direction: column;
 }
+
+/*
+ * 着手日と期限を 1 行に並べる。
+ * 「いつからいつまで」で 1 組なので、節を分けると片方だけ見て設定してしまう。
+ * 狭い画面では折り返すが、着手日と期限は必ず隣り合う。
+ */
+.detail__dates {
+  display: grid;
+  /* 着手日 〜 期限 / （空）（空）時刻 の 2 行 3 列。 */
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 8px;
+}
+
+.detail__date {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* 時刻は期限の真下に置く。折り返して左端に落ちると、どちらの時刻か分からない。 */
+.detail__date--time {
+  grid-column: 3;
+}
+.detail__date > span {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.detail__date input {
+  width: 100%;
+  min-width: 0;
+}
+
+
+.detail__dates-arrow {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  padding-bottom: 10px;
+  flex: none;
+}

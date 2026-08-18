@@ -197,13 +197,6 @@ export function createSubtask(title: string, id: string = newId()): Subtask {
 export type Action =
   /** 新規追加と、削除の取り消し（保存しておいた Todo をそのまま戻す）の両方に使う。 */
   | { type: 'add'; todo: Todo; now: string }
-  | {
-      type: 'postpone'
-      id: string
-      to: 'tomorrow' | 'nextWeek' | 'someday'
-      now: string
-      today: string
-    }
   | { type: 'update'; id: string; patch: TodoPatch; now: string }
   /** nextId / today は繰り返しタスクの次回ぶんを作るときだけ使う。 */
   | { type: 'toggle'; id: string; now: string; nextId?: string; today?: string }
@@ -291,40 +284,6 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
         // 復活させたのだから、消した記録は取り下げる。
         tombstones: store.tombstones.filter((t) => t.id !== action.todo.id),
       }
-
-    case 'postpone':
-      /*
-       * 詳細を開かずに先送りする。
-       * 期限を 1 件だけ延ばすのに、開く → 日付欄 → OS のピッカー、と
-       * 3〜4 手かかっていた。まとめ操作にはあるのに 1 件の方が重い、という逆転だった。
-       */
-      return mapTodo(store, action.id, (todo) => {
-        if (action.to === 'someday') {
-          // 棚上げは日付を持たない。持たせると「いつか」なのに期限切れになる。
-          return {
-            ...todo,
-            someday: true,
-            dueDate: null,
-            dueTime: null,
-            startDate: null,
-            notifiedAt: null,
-            updatedAt: action.now,
-          }
-        }
-        // 期限が無いものは今日を基準に数える。
-        const base =
-          todo.dueDate !== null && todo.dueDate > action.today ? todo.dueDate : action.today
-        const next = addDays(base, action.to === 'tomorrow' ? 1 : 7)
-        // 期限が動いたので、通知済みの印は落とす（新しい期限で鳴らし直す）。
-        return {
-          ...todo,
-          someday: false,
-          dueDate: next,
-          startDate: next,
-          notifiedAt: null,
-          updatedAt: action.now,
-        }
-      })
 
     case 'update':
       return mapTodo(store, action.id, (todo) => {

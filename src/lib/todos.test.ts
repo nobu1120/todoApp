@@ -1166,48 +1166,30 @@ describe('着手日といつか', () => {
     })
   })
 
-  describe('先送り', () => {
-    it('明日へ送ると期限も着手日も動く', () => {
-      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
+  describe('いつかへの切り替え', () => {
+    it('いつかにすると期限と着手日が外れる', () => {
+      const store = {
+        ...emptyStore,
+        categories: [],
+        todos: [todo({ id: 'a', dueDate: T, dueTime: '10:00', startDate: T })],
+      }
       const after = storeReducer(store, {
-        type: 'postpone', id: 'a', to: 'tomorrow', now: '2026-08-18T00:00:00.000Z', today: T,
-      })
-      expect(after.todos[0].dueDate).toBe('2026-08-19')
-      expect(after.todos[0].startDate).toBe('2026-08-19')
-    })
-
-    it('来週へ送る', () => {
-      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
-      const after = storeReducer(store, {
-        type: 'postpone', id: 'a', to: 'nextWeek', now: '2026-08-18T00:00:00.000Z', today: T,
-      })
-      expect(after.todos[0].dueDate).toBe('2026-08-25')
-    })
-
-    it('いつかへ送ると棚上げされ、期限は外れる', () => {
-      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
-      const after = storeReducer(store, {
-        type: 'postpone', id: 'a', to: 'someday', now: '2026-08-18T00:00:00.000Z', today: T,
+        type: 'update',
+        id: 'a',
+        patch: { someday: true, dueDate: null, dueTime: null, startDate: null },
+        now: '2026-08-18T00:00:00.000Z',
       })
       expect(after.todos[0].someday).toBe(true)
       expect(after.todos[0].dueDate).toBeNull()
       expect(after.todos[0].startDate).toBeNull()
     })
 
-    it('期限が無いタスクを明日へ送ると、今日を基準にする', () => {
-      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: null })] }
+    it('いつかを解除すると一覧に戻る', () => {
+      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', someday: true })] }
       const after = storeReducer(store, {
-        type: 'postpone', id: 'a', to: 'tomorrow', now: '2026-08-18T00:00:00.000Z', today: T,
+        type: 'update', id: 'a', patch: { someday: false }, now: '2026-08-18T00:00:00.000Z',
       })
-      expect(after.todos[0].dueDate).toBe('2026-08-19')
-    })
-
-    it('先送りすると更新時刻が進む（同期に乗る）', () => {
-      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
-      const after = storeReducer(store, {
-        type: 'postpone', id: 'a', to: 'tomorrow', now: '2026-08-19T09:00:00.000Z', today: T,
-      })
-      expect(after.todos[0].updatedAt).toBe('2026-08-19T09:00:00.000Z')
+      expect(filterTodos(after.todos, f('all'), T)).toHaveLength(1)
     })
   })
 })

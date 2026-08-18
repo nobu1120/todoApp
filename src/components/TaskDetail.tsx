@@ -38,7 +38,6 @@ type Props = {
   onRemoveSubtask: (subtaskId: string) => void
   onRemove: () => void
   onToggle: () => void
-  onPostpone: (to: 'tomorrow' | 'nextWeek' | 'someday') => void
   today: string
 }
 
@@ -52,7 +51,6 @@ export function TaskDetail({
   onRemoveSubtask,
   onRemove,
   onToggle,
-  onPostpone,
   today,
 }: Props) {
   const [pickingIcon, setPickingIcon] = useState(false)
@@ -127,82 +125,89 @@ export function TaskDetail({
       </section>
 
       <section className="detail__section">
-        <h3 className="detail__label">期限</h3>
-        <div className="detail__due">
-          <input
-            type="date"
-            value={todo.dueDate ?? ''}
-            onChange={(e) => onUpdate({ dueDate: e.target.value === '' ? null : e.target.value })}
-            aria-label="期限の日付"
-          />
-          <input
-            type="time"
-            value={todo.dueTime ?? ''}
-            onChange={(e) => onUpdate({ dueTime: e.target.value === '' ? null : e.target.value })}
-            disabled={todo.dueDate === null}
-            aria-label="期限の時刻"
-          />
-          {todo.dueDate !== null && (
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => onUpdate({ dueDate: null, dueTime: null })}
-            >
-              期限をなくす
-            </button>
-          )}
-        </div>
-        {todo.dueDate !== null && todo.dueTime === null && (
-          <p className="detail__hint">時刻を入れないと、設定した既定の時刻に通知します。</p>
-        )}
-
+        <h3 className="detail__label">日付</h3>
         {/*
-          * 先送りの定型ボタン。
-          * まとめ操作には「今日 / 明日」があるのに、1 件だけ延ばす方が
-          * 開く → 日付欄 → OS のピッカーと手数が多い、という逆転だった。
+          * 着手日と期限は「いつからいつまで」で 1 組なので同じ行に並べる。
+          * 節を分けると、片方だけ見て設定してしまう。
           */}
-        <div className="chip-row" role="group" aria-label="先送り">
-          <button type="button" className="chip" onClick={() => onPostpone('tomorrow')}>
-            明日へ
-          </button>
-          <button type="button" className="chip" onClick={() => onPostpone('nextWeek')}>
-            来週へ
-          </button>
-          <button
-            type="button"
-            className={`chip${todo.someday ? ' is-selected' : ''}`}
-            onClick={() => (todo.someday ? onUpdate({ someday: false }) : onPostpone('someday'))}
-            aria-pressed={todo.someday}
-          >
-            いつか
-          </button>
-        </div>
-      </section>
+        <div className="detail__dates">
+          <label className="detail__date">
+            <span>着手日</span>
+            <input
+              type="date"
+              value={todo.startDate ?? ''}
+              max={todo.dueDate ?? undefined}
+              onChange={(e) =>
+                onUpdate({ startDate: e.target.value === '' ? null : e.target.value })
+              }
+              aria-label="着手日"
+            />
+          </label>
 
-      <section className="detail__section">
-        <h3 className="detail__label">着手日</h3>
-        <p className="detail__hint">
-          この日が来るまで一覧に出しません。期限より前に「まだ見なくていい」を作れます。
-        </p>
+          <span className="detail__dates-arrow" aria-hidden="true">
+            〜
+          </span>
+
+          <label className="detail__date">
+            <span>期限</span>
+            <input
+              type="date"
+              value={todo.dueDate ?? ''}
+              onChange={(e) => onUpdate({ dueDate: e.target.value === '' ? null : e.target.value })}
+              aria-label="期限の日付"
+            />
+          </label>
+
+          <label className="detail__date detail__date--time">
+            <span>時刻</span>
+            <input
+              type="time"
+              value={todo.dueTime ?? ''}
+              onChange={(e) => onUpdate({ dueTime: e.target.value === '' ? null : e.target.value })}
+              disabled={todo.dueDate === null}
+              aria-label="期限の時刻"
+            />
+          </label>
+        </div>
+
         <div className="chip-row">
-          <input
-            className="todo-form__date"
-            type="date"
-            value={todo.startDate ?? ''}
-            max={todo.dueDate ?? undefined}
-            onChange={(e) => onUpdate({ startDate: e.target.value === '' ? null : e.target.value })}
-            aria-label="着手日"
-          />
           {todo.startDate !== null && (
             <button type="button" className="chip" onClick={() => onUpdate({ startDate: null })}>
               着手日をなくす
             </button>
           )}
+          {todo.dueDate !== null && (
+            <button
+              type="button"
+              className="chip"
+              onClick={() => onUpdate({ dueDate: null, dueTime: null })}
+            >
+              期限をなくす
+            </button>
+          )}
+          <button
+            type="button"
+            className={`chip${todo.someday ? ' is-selected' : ''}`}
+            onClick={() =>
+              onUpdate(
+                todo.someday
+                  ? { someday: false }
+                  : { someday: true, dueDate: null, dueTime: null, startDate: null },
+              )
+            }
+            aria-pressed={todo.someday}
+          >
+            いつか
+          </button>
         </div>
+
         {todo.startDate !== null && todo.startDate > today && (
           <p className="detail__hint">
-            いまは一覧に出ていません（{formatDueLabel(todo.startDate, today)}から出ます）。
+            {formatDueLabel(todo.startDate, today)}まで一覧に出しません。
           </p>
+        )}
+        {todo.dueDate !== null && todo.dueTime === null && (
+          <p className="detail__hint">時刻を入れないと、設定した既定の時刻に通知します。</p>
         )}
 
         {/* 繰り返しは期限があって初めて意味を持つ。無いときは出さない。 */}
