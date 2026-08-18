@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Category, Priority, Repeat, Todo } from '../types'
 import type { TodoPatch } from '../lib/todos'
 import { progressOf } from '../lib/todos'
-import { parseISODate, weekdayOrdinal } from '../lib/date'
+import { formatDueLabel, parseISODate, weekdayOrdinal } from '../lib/date'
 
 const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -38,6 +38,8 @@ type Props = {
   onRemoveSubtask: (subtaskId: string) => void
   onRemove: () => void
   onToggle: () => void
+  onPostpone: (to: 'tomorrow' | 'nextWeek' | 'someday') => void
+  today: string
 }
 
 export function TaskDetail({
@@ -50,6 +52,8 @@ export function TaskDetail({
   onRemoveSubtask,
   onRemove,
   onToggle,
+  onPostpone,
+  today,
 }: Props) {
   const [pickingIcon, setPickingIcon] = useState(false)
   const progress = progressOf(todo)
@@ -150,6 +154,55 @@ export function TaskDetail({
         </div>
         {todo.dueDate !== null && todo.dueTime === null && (
           <p className="detail__hint">時刻を入れないと、設定した既定の時刻に通知します。</p>
+        )}
+
+        {/*
+          * 先送りの定型ボタン。
+          * まとめ操作には「今日 / 明日」があるのに、1 件だけ延ばす方が
+          * 開く → 日付欄 → OS のピッカーと手数が多い、という逆転だった。
+          */}
+        <div className="chip-row" role="group" aria-label="先送り">
+          <button type="button" className="chip" onClick={() => onPostpone('tomorrow')}>
+            明日へ
+          </button>
+          <button type="button" className="chip" onClick={() => onPostpone('nextWeek')}>
+            来週へ
+          </button>
+          <button
+            type="button"
+            className={`chip${todo.someday ? ' is-selected' : ''}`}
+            onClick={() => (todo.someday ? onUpdate({ someday: false }) : onPostpone('someday'))}
+            aria-pressed={todo.someday}
+          >
+            いつか
+          </button>
+        </div>
+      </section>
+
+      <section className="detail__section">
+        <h3 className="detail__label">着手日</h3>
+        <p className="detail__hint">
+          この日が来るまで一覧に出しません。期限より前に「まだ見なくていい」を作れます。
+        </p>
+        <div className="chip-row">
+          <input
+            className="todo-form__date"
+            type="date"
+            value={todo.startDate ?? ''}
+            max={todo.dueDate ?? undefined}
+            onChange={(e) => onUpdate({ startDate: e.target.value === '' ? null : e.target.value })}
+            aria-label="着手日"
+          />
+          {todo.startDate !== null && (
+            <button type="button" className="chip" onClick={() => onUpdate({ startDate: null })}>
+              着手日をなくす
+            </button>
+          )}
+        </div>
+        {todo.startDate !== null && todo.startDate > today && (
+          <p className="detail__hint">
+            いまは一覧に出ていません（{formatDueLabel(todo.startDate, today)}から出ます）。
+          </p>
         )}
 
         {/* 繰り返しは期限があって初めて意味を持つ。無いときは出さない。 */}

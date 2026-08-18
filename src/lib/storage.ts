@@ -15,7 +15,7 @@ import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 export const STORAGE_KEY = 'todoApp.store'
-export const CURRENT_VERSION = 6
+export const CURRENT_VERSION = 7
 
 /** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -120,6 +120,11 @@ function parseTodo(value: unknown): Todo | null {
     priority: PRIORITIES.includes(raw.priority as Priority) ? (raw.priority as Priority) : 'normal',
     repeat: REPEATS.includes(raw.repeat as Repeat) ? (raw.repeat as Repeat) : 'none',
     spawnedFrom: typeof raw.spawnedFrom === 'string' ? raw.spawnedFrom : null,
+    // v7 で追加。古いデータには無いので、既定は「いつでも出る」。
+    startDate: typeof raw.startDate === 'string' && ISO_DATE_RE.test(raw.startDate)
+      ? raw.startDate
+      : null,
+    someday: raw.someday === true,
   }
 }
 

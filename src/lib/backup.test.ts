@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 const NOW = '2026-09-01T00:00:00.000Z'
 import type { Todo, TodoStore } from '../types'
-import { emptyStore } from './storage'
+import { CURRENT_VERSION, emptyStore } from './storage'
 import { backupFileName, mergeBackup, parseBackup, toBackup } from './backup'
 
 const todo = (patch: Partial<Todo> = {}): Todo => ({
@@ -21,7 +21,7 @@ const todo = (patch: Partial<Todo> = {}): Todo => ({
   notifiedAt: null,
   priority: 'normal',
   repeat: 'none',
-  spawnedFrom: null,
+  spawnedFrom: null, startDate: null, someday: false,
   ...patch,
 })
 
@@ -31,7 +31,7 @@ describe('書き出し', () => {
   it('版と日時を添えて包む', () => {
     const file = toBackup(store([todo()]), '2026-08-17T00:00:00.000Z')
     expect(file.app).toBe('todoApp')
-    expect(file.schemaVersion).toBe(6)
+    expect(file.schemaVersion).toBe(CURRENT_VERSION)
     expect(file.exportedAt).toBe('2026-08-17T00:00:00.000Z')
     expect(file.store.todos).toHaveLength(1)
   })
@@ -60,7 +60,7 @@ describe('読み込み', () => {
     const result = parseBackup(old)
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.store.schemaVersion).toBe(6)
+      expect(result.store.schemaVersion).toBe(CURRENT_VERSION)
       expect(result.store.todos[0]).toMatchObject({ id: 'x', repeat: 'none', priority: 'normal' })
     }
   })

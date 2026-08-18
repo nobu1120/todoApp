@@ -71,6 +71,9 @@ export function useTodos() {
       },
       update: (id: string, patch: TodoPatch) =>
         dispatch({ type: 'update', id, patch, now: now() }),
+      /** 詳細を開かずに先送りする。 */
+      postpone: (id: string, to: 'tomorrow' | 'nextWeek' | 'someday') =>
+        dispatch({ type: 'postpone', id, to, now: now(), today: todayISO() }),
       // 繰り返しタスクの次回ぶんを作れるよう、id と今日をあらかじめ渡す。
       toggle: (id: string) =>
         dispatch({

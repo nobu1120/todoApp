@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { useTodos } from './useTodos'
-import { emptyStore } from '../lib/storage'
+import { CURRENT_VERSION, emptyStore } from '../lib/storage'
 import type { Todo } from '../types'
 
 const KEY = 'todoApp.store'
@@ -23,7 +23,7 @@ const todo = (patch: Partial<Todo> = {}): Todo => ({
   notifiedAt: null,
   priority: 'normal',
   repeat: 'none',
-  spawnedFrom: null,
+  spawnedFrom: null, startDate: null, someday: false,
   ...patch,
 })
 
@@ -39,7 +39,7 @@ describe('useTodos', () => {
 
     expect(result.current.store.todos).toHaveLength(1)
     expect(saved().todos[0].title).toBe('請求書を出す')
-    expect(saved().schemaVersion).toBe(6)
+    expect(saved().schemaVersion).toBe(CURRENT_VERSION)
   })
 
   it('保存済みのデータを読み戻す', () => {

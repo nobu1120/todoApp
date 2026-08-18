@@ -54,6 +54,14 @@ export type Todo = {
   done: boolean
   /** 'YYYY-MM-DD'（ローカル日付）。未設定は null。 */
   dueDate: string | null
+  /*
+   * 着手日。この日が来るまで一覧に出さない。
+   * 期限だけだと、3 週間後が締切のタスクが今日から居座り続け、
+   * 一覧が「いま見る必要のないもの」で埋まる。
+   */
+  startDate: string | null
+  /** 棚上げ。日付を決めずに一覧から外す。消したくないが、いまは見たくないもの。 */
+  someday: boolean
   /** 'HH:MM'（ローカル時刻）。未設定なら Settings.defaultNotifyTime を使う。 */
   dueTime: string | null
   /** ISO 8601 */
@@ -112,14 +120,14 @@ export type Tombstone = {
 }
 
 export type TodoStore = {
-  schemaVersion: 6
+  schemaVersion: 7
   todos: Todo[]
   categories: Category[]
   settings: Settings
   tombstones: Tombstone[]
 }
 
-export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'done'
+export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'someday' | 'done'
 
 export type Filter = {
   status: StatusFilter

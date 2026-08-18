@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Settings, Todo, TodoStore } from '../types'
+import type { Filter, Settings, Todo, TodoStore } from '../types'
 import { diffInDays, parseISODate, formatDue, formatDueLabel, isOverdue, isToday, toHM, toISODate } from './date'
 import {
   archiveOld,
@@ -17,7 +17,7 @@ import {
   todosToNotify,
   type Action,
 } from './todos'
-import { DEFAULT_SETTINGS, emptyStore, migrate } from './storage'
+import { CURRENT_VERSION, DEFAULT_SETTINGS, emptyStore, migrate } from './storage'
 import { DEFAULT_CATEGORIES } from './categories'
 
 const TODAY = '2026-08-17'
@@ -39,6 +39,8 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     priority: 'normal',
     repeat: 'none',
     spawnedFrom: null,
+    startDate: null,
+    someday: false,
     ...overrides,
   }
 }
@@ -110,8 +112,10 @@ describe('createTodo', () => {
       subtasks: [],
       notifiedAt: null,
       priority: 'normal',
-    repeat: 'none',
-    spawnedFrom: null,
+      repeat: 'none',
+      spawnedFrom: null,
+      startDate: null,
+      someday: false,
     })
   })
 
@@ -439,7 +443,7 @@ describe('countActive', () => {
 })
 
 describe('migrate', () => {
-  it('v1 のデータを v6 に引き上げる（既定カテゴリと設定を新設）', () => {
+  it('v1 のデータを最新版に引き上げる（既定カテゴリと設定を新設）', () => {
     const v1 = {
       schemaVersion: 1,
       todos: [
@@ -460,7 +464,7 @@ describe('migrate', () => {
       ],
     }
     const s = migrate(v1)
-    expect(s.schemaVersion).toBe(6)
+    expect(s.schemaVersion).toBe(CURRENT_VERSION)
     expect(s.tombstones).toEqual([])
     expect(s.categories).toEqual(DEFAULT_CATEGORIES)
     expect(s.settings).toEqual(DEFAULT_SETTINGS)
@@ -550,7 +554,7 @@ describe('migrate', () => {
       settings: { notificationsEnabled: true, defaultNotifyTime: '08:00' },
     }
     const s = migrate(v2)
-    expect(s.schemaVersion).toBe(6)
+    expect(s.schemaVersion).toBe(CURRENT_VERSION)
     expect(s.tombstones).toEqual([])
     expect(s.todos[0]).toMatchObject({ id: 'a', icon: '📄' })
     expect(s.categories).toMatchObject([{ id: 'c1', name: '仕事', color: 'blue' }])
@@ -957,7 +961,7 @@ describe('往復中の削除', () => {
     id, title: id, done: false, dueDate: null, dueTime: null,
     createdAt: updatedAt, updatedAt, completedAt: null, icon: '',
     categoryId: null, notes: '', subtasks: [], notifiedAt: null,
-    priority: 'normal', repeat: 'none', spawnedFrom: null,
+    priority: 'normal', repeat: 'none', spawnedFrom: null, startDate: null, someday: false,
   })
 
   it('往復の間に消したものが復活しない', () => {
@@ -1015,6 +1019,7 @@ describe('元に戻す', () => {
       createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z',
       completedAt: null, icon: '', categoryId: null, notes: '', subtasks: [],
       notifiedAt: null, priority: 'normal', repeat: 'none', spawnedFrom: null,
+      startDate: null, someday: false,
     }
     const after = storeReducer(
       { ...emptyStore, categories: [], todos: [], tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-02T00:00:00.000Z' }] },
@@ -1081,5 +1086,128 @@ describe('繰り返しの拡張', () => {
   it('期限が無ければ繰り返しようがない', () => {
     expect(nextDueDate(null, 'weekday', T)).toBeNull()
     expect(nextDueDate(null, 'monthly-weekday', T)).toBeNull()
+  })
+})
+
+describe('着手日といつか', () => {
+  const T = '2026-08-18'
+  const f = (status: 'all' | 'active' | 'today' | 'overdue' | 'done' | 'someday') =>
+    ({ status, categoryId: null, query: '' }) as Filter
+
+  const t = (over: Partial<Todo> & { id: string }) =>
+    todo({ ...over })
+
+  describe('着手日', () => {
+    it('着手日が先のタスクは未完了の一覧に出ない', () => {
+      const later = t({ id: 'a', startDate: '2026-09-01', dueDate: '2026-09-10' })
+      expect(filterTodos([later], f('active'), T)).toEqual([])
+    })
+
+    it('着手日が来たら出る', () => {
+      const now = t({ id: 'a', startDate: T })
+      expect(filterTodos([now], f('active'), T)).toHaveLength(1)
+    })
+
+    it('着手日が過ぎていれば出る', () => {
+      expect(filterTodos([t({ id: 'a', startDate: '2026-08-01' })], f('active'), T)).toHaveLength(1)
+    })
+
+    it('着手日が無ければ今までどおり出る', () => {
+      expect(filterTodos([t({ id: 'a' })], f('active'), T)).toHaveLength(1)
+    })
+
+    it('「すべて」も作業リストなので出番前は出さない', () => {
+      // ここが既定の画面。出すと着手日を作った意味が無くなる。
+      const later = t({ id: 'a', startDate: '2026-09-01' })
+      expect(filterTodos([later], f('all'), T)).toEqual([])
+    })
+
+    it('出番前のものは「あとで」に集まる（隠したまま忘れないように）', () => {
+      const later = t({ id: 'a', startDate: '2026-09-01' })
+      expect(filterTodos([later], f('someday'), T)).toHaveLength(1)
+    })
+
+    it('着手日が先でも、期限が切れていれば出す（見落とす方が困る）', () => {
+      const odd = t({ id: 'a', startDate: '2026-09-01', dueDate: '2026-08-01' })
+      expect(filterTodos([odd], f('overdue'), T)).toHaveLength(1)
+      expect(filterTodos([odd], f('active'), T)).toHaveLength(1)
+    })
+
+    it('今日の一覧にも出番前は出ない', () => {
+      const later = t({ id: 'a', startDate: '2026-09-01', dueDate: T })
+      expect(filterTodos([later], f('today'), T)).toEqual([])
+    })
+  })
+
+  describe('いつか', () => {
+    it('いつかのタスクは未完了の一覧に出ない', () => {
+      expect(filterTodos([t({ id: 'a', someday: true })], f('active'), T)).toEqual([])
+    })
+
+    it('「あとで」の絞り込みでだけ出る', () => {
+      const s = t({ id: 'a', someday: true })
+      expect(filterTodos([s], f('someday'), T)).toHaveLength(1)
+      expect(filterTodos([t({ id: 'b' })], f('someday'), T)).toEqual([])
+    })
+
+    it('「すべて」には出さない（作業リストなので）', () => {
+      expect(filterTodos([t({ id: 'a', someday: true })], f('all'), T)).toEqual([])
+    })
+
+    it('完了したものは「いつか」に出ない', () => {
+      const s = t({ id: 'a', someday: true, done: true, completedAt: '2026-08-17T00:00:00.000Z' })
+      expect(filterTodos([s], f('someday'), T)).toEqual([])
+    })
+
+    it('期限が切れていても、いつかなら出さない（自分で棚上げしたもの）', () => {
+      const s = t({ id: 'a', someday: true, dueDate: '2026-08-01' })
+      expect(filterTodos([s], f('overdue'), T)).toEqual([])
+      expect(filterTodos([s], f('active'), T)).toEqual([])
+    })
+  })
+
+  describe('先送り', () => {
+    it('明日へ送ると期限も着手日も動く', () => {
+      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
+      const after = storeReducer(store, {
+        type: 'postpone', id: 'a', to: 'tomorrow', now: '2026-08-18T00:00:00.000Z', today: T,
+      })
+      expect(after.todos[0].dueDate).toBe('2026-08-19')
+      expect(after.todos[0].startDate).toBe('2026-08-19')
+    })
+
+    it('来週へ送る', () => {
+      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
+      const after = storeReducer(store, {
+        type: 'postpone', id: 'a', to: 'nextWeek', now: '2026-08-18T00:00:00.000Z', today: T,
+      })
+      expect(after.todos[0].dueDate).toBe('2026-08-25')
+    })
+
+    it('いつかへ送ると棚上げされ、期限は外れる', () => {
+      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
+      const after = storeReducer(store, {
+        type: 'postpone', id: 'a', to: 'someday', now: '2026-08-18T00:00:00.000Z', today: T,
+      })
+      expect(after.todos[0].someday).toBe(true)
+      expect(after.todos[0].dueDate).toBeNull()
+      expect(after.todos[0].startDate).toBeNull()
+    })
+
+    it('期限が無いタスクを明日へ送ると、今日を基準にする', () => {
+      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: null })] }
+      const after = storeReducer(store, {
+        type: 'postpone', id: 'a', to: 'tomorrow', now: '2026-08-18T00:00:00.000Z', today: T,
+      })
+      expect(after.todos[0].dueDate).toBe('2026-08-19')
+    })
+
+    it('先送りすると更新時刻が進む（同期に乗る）', () => {
+      const store = { ...emptyStore, categories: [], todos: [todo({ id: 'a', dueDate: T })] }
+      const after = storeReducer(store, {
+        type: 'postpone', id: 'a', to: 'tomorrow', now: '2026-08-19T09:00:00.000Z', today: T,
+      })
+      expect(after.todos[0].updatedAt).toBe('2026-08-19T09:00:00.000Z')
+    })
   })
 })

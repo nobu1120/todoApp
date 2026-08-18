@@ -28,6 +28,8 @@ export type NewTodoInput = {
   dueTime?: string | null
   icon?: string
   categoryId?: string | null
+  startDate?: string | null
+  someday?: boolean
   priority?: Priority
   repeat?: Repeat
   /** 共有シートから来た参照元 URL など。 */
@@ -51,7 +53,16 @@ export function newId(): string {
 export type TodoPatch = Partial<
   Pick<
     Todo,
-    'title' | 'dueDate' | 'dueTime' | 'icon' | 'categoryId' | 'notes' | 'priority' | 'repeat'
+    | 'title'
+    | 'dueDate'
+    | 'dueTime'
+    | 'icon'
+    | 'categoryId'
+    | 'notes'
+    | 'priority'
+    | 'repeat'
+    | 'startDate'
+    | 'someday'
   >
 >
 
@@ -74,6 +85,8 @@ export function createTodo(
     notes: input.notes ?? '',
     subtasks: [],
     notifiedAt: null,
+    startDate: input.startDate ?? null,
+    someday: input.someday ?? false,
     priority: input.priority ?? 'normal',
     repeat: input.repeat ?? 'none',
     spawnedFrom: null,
@@ -184,6 +197,13 @@ export function createSubtask(title: string, id: string = newId()): Subtask {
 export type Action =
   /** 新規追加と、削除の取り消し（保存しておいた Todo をそのまま戻す）の両方に使う。 */
   | { type: 'add'; todo: Todo; now: string }
+  | {
+      type: 'postpone'
+      id: string
+      to: 'tomorrow' | 'nextWeek' | 'someday'
+      now: string
+      today: string
+    }
   | { type: 'update'; id: string; patch: TodoPatch; now: string }
   /** nextId / today は繰り返しタスクの次回ぶんを作るときだけ使う。 */
   | { type: 'toggle'; id: string; now: string; nextId?: string; today?: string }
@@ -271,6 +291,40 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
         // 復活させたのだから、消した記録は取り下げる。
         tombstones: store.tombstones.filter((t) => t.id !== action.todo.id),
       }
+
+    case 'postpone':
+      /*
+       * 詳細を開かずに先送りする。
+       * 期限を 1 件だけ延ばすのに、開く → 日付欄 → OS のピッカー、と
+       * 3〜4 手かかっていた。まとめ操作にはあるのに 1 件の方が重い、という逆転だった。
+       */
+      return mapTodo(store, action.id, (todo) => {
+        if (action.to === 'someday') {
+          // 棚上げは日付を持たない。持たせると「いつか」なのに期限切れになる。
+          return {
+            ...todo,
+            someday: true,
+            dueDate: null,
+            dueTime: null,
+            startDate: null,
+            notifiedAt: null,
+            updatedAt: action.now,
+          }
+        }
+        // 期限が無いものは今日を基準に数える。
+        const base =
+          todo.dueDate !== null && todo.dueDate > action.today ? todo.dueDate : action.today
+        const next = addDays(base, action.to === 'tomorrow' ? 1 : 7)
+        // 期限が動いたので、通知済みの印は落とす（新しい期限で鳴らし直す）。
+        return {
+          ...todo,
+          someday: false,
+          dueDate: next,
+          startDate: next,
+          notifiedAt: null,
+          updatedAt: action.now,
+        }
+      })
 
     case 'update':
       return mapTodo(store, action.id, (todo) => {
@@ -549,16 +603,42 @@ export function todosToNotify(todos: Todo[], settings: Settings, now: Date): Tod
 
 // --- 表示用の絞り込み・並び替え ------------------------------------------------
 
+/**
+ * まだ出番が来ていないか。
+ *
+ * 棚上げ（いつか）と、着手日が先のものを一覧から外す。
+ * ただし**期限を過ぎたものは出す**——着手日より締切のほうが強い。
+ * 「まだ始めなくていい」と「もう遅れている」が同時に成り立つときは、
+ * 見落とす方が困る。
+ */
+export function isWaiting(todo: Todo, today: string): boolean {
+  if (todo.someday === true) return true
+  // null / undefined のどちらでも「待っていない」扱いにする。
+  if (!todo.startDate || todo.startDate <= today) return false
+  // 着手日より前でも、期限切れなら隠さない。
+  return !isOverdue(todo.dueDate, today)
+}
+
 export function matchesStatus(todo: Todo, status: StatusFilter, today: string): boolean {
   switch (status) {
     case 'all':
-      return true
+      /*
+       * 「すべて」は既定の画面なので、ここが作業リストになる。
+       * 出番前のものまで出すと、着手日を作った意味が無くなる
+       * （3 週間後が締切のタスクが今日から居座り続ける）。
+       * 隠したものは 'someday' に集めてあり、件数も出るので忘れない。
+       */
+      return !isWaiting(todo, today)
     case 'active':
-      return !todo.done
+      return !todo.done && !isWaiting(todo, today)
     case 'today':
-      return !todo.done && todo.dueDate === today
+      return !todo.done && !isWaiting(todo, today) && todo.dueDate === today
     case 'overdue':
-      return !todo.done && isOverdue(todo.dueDate, today)
+      // 棚上げしたものは、自分で降ろすまで急かさない。
+      return !todo.done && !todo.someday && isOverdue(todo.dueDate, today)
+    case 'someday':
+      // 隠しているもの全部の置き場。着手日待ちと棚上げの両方が入る。
+      return !todo.done && isWaiting(todo, today)
     case 'done':
       return todo.done
   }

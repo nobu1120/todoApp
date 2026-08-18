@@ -39,6 +39,7 @@ const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   active: { art: '🍃', title: '未完了のタスクはありません' },
   today: { art: '☕', title: '今日が期限のタスクはありません' },
   overdue: { art: '✨', title: '期限切れはありません' },
+  someday: { art: '🧺', title: 'あとで回したものはありません' },
   done: { art: '📭', title: '完了したタスクはまだありません' },
 }
 
@@ -113,6 +114,7 @@ export default function App() {
       active: count('active'),
       today: count('today'),
       overdue: count('overdue'),
+      someday: count('someday'),
       done: count('done'),
     }
   }, [todos, filter.categoryId, filter.query, today])
@@ -438,6 +440,8 @@ export default function App() {
             onRenameSubtask={(sid, title) => todo.renameSubtask(openTodo.id, sid, title)}
             onRemoveSubtask={(sid) => todo.removeSubtask(openTodo.id, sid)}
             onToggle={() => todo.toggle(openTodo.id)}
+            onPostpone={(to) => todo.postpone(openTodo.id, to)}
+            today={today}
             onRemove={() => {
               todo.remove(openTodo.id)
               setOpenId(null)

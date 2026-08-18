@@ -33,7 +33,7 @@ export function TodoForm({ categories, today, defaultCategoryId, fixedDueDate, o
   const parsed = parseInput(title, today, categories)
   const understood =
     parsed.dueDate !== null || parsed.categoryId !== null ||
-    parsed.priority !== 'normal' || parsed.repeat !== 'none'
+    parsed.priority !== 'normal' || parsed.repeat !== 'none' || parsed.someday
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -47,6 +47,7 @@ export function TodoForm({ categories, today, defaultCategoryId, fixedDueDate, o
       categoryId: categoryId ?? parsed.categoryId,
       priority: parsed.priority,
       repeat: parsed.repeat,
+      someday: parsed.someday,
     })
     setTitle('')
     setDueDate('')
@@ -116,6 +117,7 @@ export function TodoForm({ categories, today, defaultCategoryId, fixedDueDate, o
               <b>{categories.find((c) => c.id === parsed.categoryId)?.name}</b>
             )}
             {parsed.priority !== 'normal' && <b>{parsed.priority === 'high' ? '高' : '低'}</b>}
+            {parsed.someday && <b>いつか</b>}
             <span className="todo-form__read-title">{parsed.title}</span>
           </span>
         </p>

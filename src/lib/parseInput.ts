@@ -17,6 +17,7 @@ import { addDays, nthWeekdayOfMonth, parseISODate, toISODate, todayISO } from '.
 
 export type ParsedInput = {
   title: string
+  someday: boolean
   dueDate: string | null
   dueTime: string | null
   categoryId: string | null
@@ -47,6 +48,7 @@ export function parseInput(
 ): ParsedInput {
   const result: ParsedInput = {
     title: raw.trim(),
+    someday: false,
     dueDate: null,
     dueTime: null,
     categoryId: null,
@@ -87,6 +89,7 @@ export function parseInput(
   if (title === '') {
     return {
       title: raw.trim().replace(/\s+/g, ' '),
+      someday: false,
       dueDate: null,
       dueTime: null,
       categoryId: null,
@@ -114,6 +117,12 @@ function consume(
 ): boolean {
   let rest = word
   let hit = false
+
+  // --- いつか（棚上げ）---
+  if (rest === 'いつか' || rest === 'someday') {
+    out.someday = true
+    return true
+  }
 
   // --- 平日 ---
   if (rest === '平日' || rest === '毎平日') {

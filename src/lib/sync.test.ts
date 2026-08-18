@@ -33,6 +33,8 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     priority: 'normal',
     repeat: 'none',
     spawnedFrom: null,
+    startDate: null,
+    someday: false,
     ...overrides,
   }
 }

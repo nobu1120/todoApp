@@ -34,6 +34,10 @@ create table if not exists public.todo_items (
   title         text not null default '',
   done          boolean not null default false,
   due_date      date,
+  -- 着手日。この日が来るまでアプリの一覧に出さない。
+  start_date    date,
+  -- 棚上げ。日付を決めずに一覧から外したもの。通知も送らない。
+  someday       boolean not null default false,
   due_time      time,
   icon          text not null default '',
   category_id   text,
@@ -172,6 +176,8 @@ as $$
   join public.todo_settings s on s.user_id = i.user_id
   where i.deleted_at is null
     and i.done = false
+    -- 棚上げしたものは通知しない。隠したはずのタスクの通知だけ鳴るのを防ぐ。
+    and i.someday = false
     and i.notified_at is null
     and i.due_date is not null
     and s.notifications_enabled

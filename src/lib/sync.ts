@@ -27,6 +27,8 @@ export type RemoteTodo = {
   title: string
   done: boolean
   due_date: string | null
+  start_date: string | null
+  someday: boolean | null
   due_time: string | null
   icon: string
   category_id: string | null
@@ -95,6 +97,8 @@ export function toRemoteTodo(todo: Todo, userId: string): RemoteTodo {
     title: todo.title,
     done: todo.done,
     due_date: todo.dueDate,
+    start_date: todo.startDate,
+    someday: todo.someday,
     due_time: todo.dueTime,
     icon: todo.icon,
     category_id: todo.categoryId,
@@ -181,6 +185,8 @@ export function fromRemoteTodo(row: RemoteTodo): Todo {
     title: row.title,
     done: row.done,
     dueDate: row.due_date,
+    startDate: row.start_date,
+    someday: row.someday === true,
     dueTime: shortTime(row.due_time),
     createdAt: atTime(row.created_at),
     updatedAt: atTime(row.updated_at),

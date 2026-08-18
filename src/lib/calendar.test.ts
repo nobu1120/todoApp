@@ -28,7 +28,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     notifiedAt: null,
     priority: 'normal',
     repeat: 'none',
-    spawnedFrom: null,
+    spawnedFrom: null, startDate: null, someday: false,
     ...overrides,
   }
 }
