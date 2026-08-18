@@ -175,3 +175,19 @@ describe('まとめて削除', () => {
     expect(result.current.store.todos).toHaveLength(3)
   })
 })
+
+describe('共有シートからの追加', () => {
+  it('add は追加した id を返す（取り消せるように）', () => {
+    const { result } = renderHook(() => useTodos())
+    let id = ''
+    act(() => {
+      id = result.current.add({ title: '共有したもの', notes: 'https://example.com' })
+    })
+    const added = result.current.store.todos.find((t) => t.id === id)
+    expect(added?.title).toBe('共有したもの')
+    expect(added?.notes).toBe('https://example.com')
+
+    act(() => result.current.remove(id))
+    expect(result.current.store.todos.find((t) => t.id === id)).toBeUndefined()
+  })
+})

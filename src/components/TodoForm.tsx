@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import type { Category } from '../types'
 import type { NewTodoInput } from '../lib/todos'
 import { formatDueLabel } from '../lib/date'
+import { parseInput } from '../lib/parseInput'
 import { Icon } from './Icon'
 
 type Props = {
@@ -25,14 +26,27 @@ export function TodoForm({ categories, today, defaultCategoryId, fixedDueDate, o
 
   const canSubmit = title.trim() !== ''
 
+  /*
+   * 打ちながら「何と読んだか」を出す。
+   * 黙って期限が付くと、間違って読まれたときに気づけない。
+   */
+  const parsed = parseInput(title, today, categories)
+  const understood =
+    parsed.dueDate !== null || parsed.categoryId !== null ||
+    parsed.priority !== 'normal' || parsed.repeat !== 'none'
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!canSubmit) return
 
+    // 欄で明示した指定は、書き取った内容より優先する。
     onAdd({
-      title,
-      dueDate: fixedDueDate ?? (dueDate === '' ? null : dueDate),
-      categoryId,
+      title: parsed.title,
+      dueDate: fixedDueDate ?? (dueDate !== '' ? dueDate : parsed.dueDate),
+      dueTime: parsed.dueTime,
+      categoryId: categoryId ?? parsed.categoryId,
+      priority: parsed.priority,
+      repeat: parsed.repeat,
     })
     setTitle('')
     setDueDate('')
@@ -86,6 +100,26 @@ export function TodoForm({ categories, today, defaultCategoryId, fixedDueDate, o
           <Icon name="plus" />
         </button>
       </div>
+
+      {understood && (
+        <p className="todo-form__read" role="status">
+          <Icon name="check" />
+          <span>
+            {parsed.dueDate !== null && (
+              <b>{formatDueLabel(parsed.dueDate, today)}</b>
+            )}
+            {parsed.dueTime !== null && <b>{parsed.dueTime}</b>}
+            {parsed.repeat !== 'none' && (
+              <b>{parsed.repeat === 'daily' ? '毎日' : parsed.repeat === 'weekly' ? '毎週' : '毎月'}</b>
+            )}
+            {parsed.categoryId !== null && (
+              <b>{categories.find((c) => c.id === parsed.categoryId)?.name}</b>
+            )}
+            {parsed.priority !== 'normal' && <b>{parsed.priority === 'high' ? '高' : '低'}</b>}
+            <span className="todo-form__read-title">{parsed.title}</span>
+          </span>
+        </p>
+      )}
 
       {expanded && (
         <div className="todo-form__options">

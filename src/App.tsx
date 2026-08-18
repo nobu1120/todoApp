@@ -8,7 +8,7 @@ import {
   sortTodos,
 } from './lib/todos'
 import { cacheCurrentAssets, ensureServiceWorker } from './lib/notify'
-import { addDays } from './lib/date'
+import { addDays, todayISO } from './lib/date'
 import { SelectionBar } from './components/SelectionBar'
 import { DataNotice } from './components/DataNotice'
 import { useTodos } from './hooks/useTodos'
@@ -29,6 +29,8 @@ import { ViewTabs, type ViewMode } from './components/ViewTabs'
 import { CalendarView } from './components/CalendarView'
 import { currentYearMonth, toYearMonth } from './lib/calendar'
 import { useLocalOnlyNotice } from './hooks/useLocalOnlyNotice'
+import { parseInput } from './lib/parseInput'
+import { sharedTask } from './lib/shared'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -167,10 +169,31 @@ export default function App() {
 
     const params = new URLSearchParams(window.location.search)
     const fromUrl = params.get('done')
-    if (fromUrl !== null) {
-      done(fromUrl)
-      // 再読み込みで二重に効かないよう、URL からは消す。
-      params.delete('done')
+    if (fromUrl !== null) done(fromUrl)
+
+    /*
+     * 他のアプリの共有シートから来たぶん。
+     * 確認を挟まずその場で足す（挟むと 1 タップにならない）。
+     * 取り消しのトーストが出るので、間違って共有しても戻せる。
+     */
+    const shared = sharedTask(params)
+    if (shared !== null) {
+      const parsed = parseInput(shared.title, todayISO(), todoRef.current.store.categories)
+      const id = todoRef.current.add({
+        title: parsed.title,
+        dueDate: parsed.dueDate,
+        dueTime: parsed.dueTime,
+        categoryId: parsed.categoryId,
+        priority: parsed.priority,
+        repeat: parsed.repeat,
+        notes: shared.notes,
+      })
+      setJustShared({ id, title: parsed.title })
+    }
+
+    // 再読み込みで二重に効かないよう、URL からは消す。
+    if (fromUrl !== null || shared !== null || params.has('add')) {
+      for (const key of ['done', 'title', 'text', 'url', 'add']) params.delete(key)
       const rest = params.toString()
       window.history.replaceState(null, '', window.location.pathname + (rest === '' ? '' : `?${rest}`))
     }
@@ -206,6 +229,14 @@ export default function App() {
     setSelecting(false)
     setSelectedIds(new Set())
   }, [])
+
+  /* 共有シートから足したぶん。黙って増えると気づけないので、その場で取り消せるようにする。 */
+  const [justShared, setJustShared] = useState<{ id: string; title: string } | null>(null)
+  useEffect(() => {
+    if (justShared === null) return
+    const timer = setTimeout(() => setJustShared(null), 6000)
+    return () => clearTimeout(timer)
+  }, [justShared])
 
   const localOnly = useLocalOnlyNotice(todos.length)
 
@@ -438,7 +469,22 @@ export default function App() {
         />
       )}
 
-      {todo.lastRemoved !== null && (
+      {justShared !== null && (
+        <div className="undo" role="status">
+          <span className="undo__text">「{justShared.title}」を追加しました</span>
+          <button
+            type="button"
+            onClick={() => {
+              todo.remove(justShared.id)
+              setJustShared(null)
+            }}
+          >
+            取り消す
+          </button>
+        </div>
+      )}
+
+      {justShared === null && todo.lastRemoved !== null && (
         <div className="undo" role="status">
           <span className="undo__text">
             {todo.lastRemoved.length === 1

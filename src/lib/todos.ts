@@ -1,6 +1,7 @@
 import type {
   Category,
   Filter,
+  Priority,
   Repeat,
   Settings,
   SortMode,
@@ -18,6 +19,10 @@ export type NewTodoInput = {
   dueTime?: string | null
   icon?: string
   categoryId?: string | null
+  priority?: Priority
+  repeat?: Repeat
+  /** 共有シートから来た参照元 URL など。 */
+  notes?: string
 }
 
 const PRIORITY_RANK: Record<Todo['priority'], number> = { high: 0, normal: 1, low: 2 }
@@ -57,11 +62,11 @@ export function createTodo(
     completedAt: null,
     icon: input.icon ?? '',
     categoryId: input.categoryId ?? null,
-    notes: '',
+    notes: input.notes ?? '',
     subtasks: [],
     notifiedAt: null,
-    priority: 'normal',
-    repeat: 'none',
+    priority: input.priority ?? 'normal',
+    repeat: input.repeat ?? 'none',
     spawnedFrom: null,
   }
 }

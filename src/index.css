@@ -2739,3 +2739,39 @@ body:has(.selection-bar) {
   .todo-form { margin-bottom: 8px; }
   .filter-bar { margin-bottom: 8px; }
 }
+
+/*
+ * 1 行入力の読み取り結果。
+ * 黙って期限が付くと、違う読み方をされたときに気づけないので、
+ * 打っている最中に「こう読んだ」を出す。
+ */
+.todo-form__read {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 0 4px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.todo-form__read > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.todo-form__read b {
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 1px 7px;
+  font-size: 0.75rem;
+}
+.todo-form__read-title {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

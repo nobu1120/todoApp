@@ -63,7 +63,12 @@ export function useTodos() {
 
   const actions = useMemo(
     () => ({
-      add: (input: NewTodoInput) => dispatch({ type: 'add', todo: createTodo(input), now: now() }),
+      /** 追加したタスクの id を返す。共有シートからの追加を取り消すのに要る。 */
+      add: (input: NewTodoInput) => {
+        const todo = createTodo(input)
+        dispatch({ type: 'add', todo, now: now() })
+        return todo.id
+      },
       update: (id: string, patch: TodoPatch) =>
         dispatch({ type: 'update', id, patch, now: now() }),
       // 繰り返しタスクの次回ぶんを作れるよう、id と今日をあらかじめ渡す。
