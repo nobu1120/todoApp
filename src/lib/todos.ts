@@ -62,6 +62,7 @@ export function createTodo(
     notifiedAt: null,
     priority: 'normal',
     repeat: 'none',
+    spawnedFrom: null,
   }
 }
 
@@ -111,6 +112,8 @@ export function repeatOf(todo: Todo, now: string, today: string, id: string): To
     updatedAt: now,
     completedAt: null,
     notifiedAt: null,
+    // どのタスクから作られたかを残す。完了を取り消したときに取り下げるため。
+    spawnedFrom: todo.id,
     // サブタスクは同じ内容で作り直す。チェックは戻す。
     subtasks: todo.subtasks.map((s) => ({ ...s, done: false })),
   }
@@ -149,7 +152,12 @@ export type Action =
   | { type: 'subtask:rename'; id: string; subtaskId: string; title: string; now: string }
   | { type: 'subtask:remove'; id: string; subtaskId: string; now: string }
   | { type: 'category:add'; category: Category }
-  | { type: 'category:update'; id: string; patch: Partial<Omit<Category, 'id'>> }
+  | {
+      type: 'category:update'
+      id: string
+      patch: Partial<Omit<Category, 'id' | 'updatedAt'>>
+      now: string
+    }
   | { type: 'category:remove'; id: string; now: string }
   | { type: 'settings:update'; patch: Partial<Settings>; now: string }
 
@@ -186,7 +194,13 @@ function withTombstone(store: TodoStore, tombstone: Tombstone): Tombstone[] {
 export function storeReducer(store: TodoStore, action: Action): TodoStore {
   switch (action.type) {
     case 'sync:replace':
-      return action.store
+      /*
+       * 同期の結果は「丸ごと差し替え」にしない。
+       * 通信の往復（数百 ms〜数秒）の間に触ったぶんが、
+       * 差し替えで消えてローカルからもサーバーからも失われていた。
+       * ここでもう一度、更新が新しいほうを採り直す。
+       */
+      return mergeIncoming(store, action.store)
 
     case 'add':
       return {
@@ -217,8 +231,23 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
           updatedAt: action.now,
         }
       })
+      if (target === undefined) return toggled
+
+      if (target.done) {
+        /*
+         * 完了を取り消した。押し間違いなので、このタスクから作られた次回ぶんも
+         * 取り下げる。ただし、その後に手を入れたもの（編集・完了）は残す。
+         */
+        const undo = toggled.todos.filter(
+          (t) => t.spawnedFrom === action.id && !t.done && t.updatedAt === t.createdAt,
+        )
+        if (undo.length === 0) return toggled
+        const ids = new Set(undo.map((t) => t.id))
+        return { ...toggled, todos: toggled.todos.filter((t) => !ids.has(t.id)) }
+      }
+
       // 繰り返しタスクを完了にしたら、次回ぶんをその場で作る。
-      if (target === undefined || target.done || action.nextId === undefined) return toggled
+      if (action.nextId === undefined) return toggled
       const next = repeatOf(target, action.now, action.today ?? action.now.slice(0, 10), action.nextId)
       return next === null ? toggled : { ...toggled, todos: [...toggled.todos, next] }
     }
@@ -333,10 +362,11 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
       return { ...store, categories: [...store.categories, action.category] }
 
     case 'category:update':
+      // 更新時刻を進める。これが無いと、改名がサーバーの古い値に巻き戻る。
       return {
         ...store,
         categories: store.categories.map((c) =>
-          c.id === action.id ? { ...c, ...action.patch } : c,
+          c.id === action.id ? { ...c, ...action.patch, updatedAt: action.now } : c,
         ),
       }
 
@@ -363,6 +393,40 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
         ...store,
         settings: { ...store.settings, ...action.patch, updatedAt: action.now },
       }
+  }
+}
+
+/**
+ * 同期で受け取った状態を、いまの状態に重ねる。
+ * 「往復の間に触ったぶんを取りこぼさない」ためだけの突き合わせなので、
+ * 判定は他と同じく更新時刻の新しいほうを採る。
+ */
+export function mergeIncoming(current: TodoStore, incoming: TodoStore): TodoStore {
+  const todos = new Map(incoming.todos.map((t) => [t.id, t]))
+  const removed = new Set(incoming.tombstones.map((t) => t.id))
+  for (const mine of current.todos) {
+    // 同期の結果として消えたものを、こちら側の都合で復活させない。
+    if (removed.has(mine.id)) continue
+    const theirs = todos.get(mine.id)
+    // 相手が知らない = 往復の間に増えたぶん。新しいほう優先で残す。
+    if (theirs === undefined || mine.updatedAt > theirs.updatedAt) todos.set(mine.id, mine)
+  }
+
+  const categories = new Map(incoming.categories.map((c) => [c.id, c]))
+  for (const mine of current.categories) {
+    if (removed.has(mine.id)) continue
+    const theirs = categories.get(mine.id)
+    if (theirs === undefined || mine.updatedAt > theirs.updatedAt) categories.set(mine.id, mine)
+  }
+
+  return {
+    ...incoming,
+    todos: [...todos.values()],
+    categories: [...categories.values()],
+    settings:
+      current.settings.updatedAt > incoming.settings.updatedAt
+        ? current.settings
+        : incoming.settings,
   }
 }
 

@@ -23,6 +23,7 @@ const todo = (patch: Partial<Todo> = {}): Todo => ({
   notifiedAt: null,
   priority: 'normal',
   repeat: 'none',
+  spawnedFrom: null,
   ...patch,
 })
 
@@ -38,7 +39,7 @@ describe('useTodos', () => {
 
     expect(result.current.store.todos).toHaveLength(1)
     expect(saved().todos[0].title).toBe('請求書を出す')
-    expect(saved().schemaVersion).toBe(5)
+    expect(saved().schemaVersion).toBe(6)
   })
 
   it('保存済みのデータを読み戻す', () => {

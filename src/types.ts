@@ -29,6 +29,12 @@ export type Category = {
   id: string
   name: string
   color: CategoryColor
+  /**
+   * 最後に変えた時刻（ISO 8601）。
+   * これが無いと同期でどちらが新しいか判定できず、改名や色の変更が
+   * サーバーの古い値に黙って巻き戻る。
+   */
+  updatedAt: string
 }
 
 export type Todo = {
@@ -54,6 +60,11 @@ export type Todo = {
   priority: Priority
   /** 完了したときに、次の予定を自動で作るか。期限がないタスクでは効かない。 */
   repeat: Repeat
+  /**
+   * 繰り返しで自動生成された場合の、生成元のタスク id。
+   * 完了を取り消したときに、作られた次回ぶんを一緒に取り下げるために使う。
+   */
+  spawnedFrom: string | null
 }
 
 export type Settings = {
@@ -90,7 +101,7 @@ export type Tombstone = {
 }
 
 export type TodoStore = {
-  schemaVersion: 5
+  schemaVersion: 6
   todos: Todo[]
   categories: Category[]
   settings: Settings

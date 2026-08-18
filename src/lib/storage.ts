@@ -14,8 +14,8 @@ import { HM_RE, ISO_DATE_RE } from './date'
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
-const STORAGE_KEY = 'todoApp.store'
-export const CURRENT_VERSION = 5
+export const STORAGE_KEY = 'todoApp.store'
+export const CURRENT_VERSION = 6
 
 /** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -103,6 +103,7 @@ function parseTodo(value: unknown): Todo | null {
     notifiedAt: typeof raw.notifiedAt === 'string' ? raw.notifiedAt : null,
     priority: PRIORITIES.includes(raw.priority as Priority) ? (raw.priority as Priority) : 'normal',
     repeat: REPEATS.includes(raw.repeat as Repeat) ? (raw.repeat as Repeat) : 'none',
+    spawnedFrom: typeof raw.spawnedFrom === 'string' ? raw.spawnedFrom : null,
   }
 }
 
@@ -117,6 +118,8 @@ function parseCategory(value: unknown): Category | null {
     color: COLOR_KEYS.includes(raw.color as CategoryColor)
       ? (raw.color as CategoryColor)
       : 'gray',
+    // 古いデータには無い。最古にしておき、同期ではサーバー側に譲る。
+    updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : new Date(0).toISOString(),
   }
 }
 
@@ -164,7 +167,9 @@ function parseTombstone(value: unknown, now: number): Tombstone | null {
  * 足りないフィールドを既定値で埋め、カテゴリと設定を新設することで行う。
  * v2 → v3 は墓標の配列を足すだけ。
  * v3 → v4 は設定にテーマと明暗を足すだけ（parseSettings が既定で埋める）。
- * v4 → v5 は繰り返し・並び順・保存期間を足すだけ。いずれも既定値で埋まる。
+ * v4 → v5 は繰り返し・並び順・保存期間を足すだけ。
+ * v5 → v6 はカテゴリの更新時刻と、繰り返しの生成元を足すだけ。
+ * いずれも既定値で埋まる。
  */
 export function migrate(value: unknown, now: number = Date.now()): TodoStore {
   if (typeof value !== 'object' || value === null) return emptyStore

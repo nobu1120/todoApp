@@ -8,6 +8,7 @@ import {
   createTodo,
   dueMoment,
   filterTodos,
+  mergeIncoming,
   needsAttention,
   nextDueDate,
   progressOf,
@@ -37,6 +38,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     notifiedAt: null,
     priority: 'normal',
     repeat: 'none',
+    spawnedFrom: null,
     ...overrides,
   }
 }
@@ -109,6 +111,7 @@ describe('createTodo', () => {
       notifiedAt: null,
       priority: 'normal',
     repeat: 'none',
+    spawnedFrom: null,
     })
   })
 
@@ -275,19 +278,27 @@ describe('progressOf', () => {
 describe('storeReducer: カテゴリと設定', () => {
   const now = '2026-08-17T12:00:00.000Z'
 
-  it('カテゴリを追加・更新する', () => {
+  it('カテゴリを追加・更新し、更新時刻を進める', () => {
     const added = storeReducer(emptyStore, {
       type: 'category:add',
-      category: { id: 'c1', name: '趣味', color: 'pink' },
+      category: { id: 'c1', name: '趣味', color: 'pink', updatedAt: now },
     })
-    expect(added.categories.at(-1)).toEqual({ id: 'c1', name: '趣味', color: 'pink' })
+    expect(added.categories.at(-1)).toEqual({ id: 'c1', name: '趣味', color: 'pink', updatedAt: now })
 
+    const later = '2026-08-18T12:00:00.000Z'
     const updated = storeReducer(added, {
       type: 'category:update',
       id: 'c1',
       patch: { name: '趣味と遊び', color: 'teal' },
+      now: later,
     })
-    expect(updated.categories.at(-1)).toEqual({ id: 'c1', name: '趣味と遊び', color: 'teal' })
+    // 更新時刻が進まないと、この改名は次の同期でサーバーの古い値に巻き戻る。
+    expect(updated.categories.at(-1)).toEqual({
+      id: 'c1',
+      name: '趣味と遊び',
+      color: 'teal',
+      updatedAt: later,
+    })
   })
 
   it('カテゴリを消すと、参照していたタスクは未分類になる', () => {
@@ -428,7 +439,7 @@ describe('countActive', () => {
 })
 
 describe('migrate', () => {
-  it('v1 のデータを v5 に引き上げる（既定カテゴリと設定を新設）', () => {
+  it('v1 のデータを v6 に引き上げる（既定カテゴリと設定を新設）', () => {
     const v1 = {
       schemaVersion: 1,
       todos: [
@@ -442,13 +453,14 @@ describe('migrate', () => {
           completedAt: null,
           priority: 'normal',
     repeat: 'none',
+    spawnedFrom: null,
           tags: [],
           notes: '前から書いてあったメモ',
         },
       ],
     }
     const s = migrate(v1)
-    expect(s.schemaVersion).toBe(5)
+    expect(s.schemaVersion).toBe(6)
     expect(s.tombstones).toEqual([])
     expect(s.categories).toEqual(DEFAULT_CATEGORIES)
     expect(s.settings).toEqual(DEFAULT_SETTINGS)
@@ -493,6 +505,7 @@ describe('migrate', () => {
       subtasks: [],
       priority: 'normal',
     repeat: 'none',
+    spawnedFrom: null,
     })
   })
 
@@ -519,7 +532,7 @@ describe('migrate', () => {
       todos: [],
       categories: [{ id: 'c1', name: '色が変', color: 'まぶしい' }, { name: 'id なし' }, null],
     })
-    expect(s.categories).toEqual([{ id: 'c1', name: '色が変', color: 'gray' }])
+    expect(s.categories).toMatchObject([{ id: 'c1', name: '色が変', color: 'gray' }])
   })
 
   it('サブタスクを検証して壊れた要素を捨てる', () => {
@@ -537,10 +550,10 @@ describe('migrate', () => {
       settings: { notificationsEnabled: true, defaultNotifyTime: '08:00' },
     }
     const s = migrate(v2)
-    expect(s.schemaVersion).toBe(5)
+    expect(s.schemaVersion).toBe(6)
     expect(s.tombstones).toEqual([])
     expect(s.todos[0]).toMatchObject({ id: 'a', icon: '📄' })
-    expect(s.categories).toEqual([{ id: 'c1', name: '仕事', color: 'blue' }])
+    expect(s.categories).toMatchObject([{ id: 'c1', name: '仕事', color: 'blue' }])
     expect(s.settings.defaultNotifyTime).toBe('08:00')
   })
 
@@ -843,5 +856,95 @@ describe('レビューで見つかった穴（回帰）', () => {
       settings: { ...emptyStore.settings, archiveAfterDays: 30 },
     }
     expect(archiveOld(store, '2026-08-18T00:00:00.000Z').todos).toHaveLength(1)
+  })
+})
+
+describe('同期の取り込み（往復中の編集を守る）', () => {
+  const at = (iso: string) => iso
+
+  it('往復の間に足したタスクが消えない', () => {
+    // 以前は丸ごと差し替えていたため、通信中に追加したぶんが消えていた。
+    const current = { ...emptyStore, todos: [todo({ id: 'new', title: '通信中に追加' })] }
+    const incoming = { ...emptyStore, todos: [todo({ id: 'server', title: 'サーバー由来' })] }
+    const merged = mergeIncoming(current, incoming)
+    expect(merged.todos.map((t) => t.id).sort()).toEqual(['new', 'server'])
+  })
+
+  it('往復の間に編集したぶんが巻き戻らない', () => {
+    const current = {
+      ...emptyStore,
+      todos: [todo({ id: 'a', title: 'あとで直した', updatedAt: at('2026-08-10T00:00:00.000Z') })],
+    }
+    const incoming = {
+      ...emptyStore,
+      todos: [todo({ id: 'a', title: 'サーバーの内容', updatedAt: at('2026-08-01T00:00:00.000Z') })],
+    }
+    expect(mergeIncoming(current, incoming).todos[0].title).toBe('あとで直した')
+  })
+
+  it('同期の結果として消えたものは、復活させない', () => {
+    const current = { ...emptyStore, todos: [todo({ id: 'gone' })] }
+    const incoming = {
+      ...emptyStore,
+      todos: [],
+      tombstones: [{ id: 'gone', kind: 'todo' as const, deletedAt: at('2026-08-10T00:00:00.000Z') }],
+    }
+    expect(mergeIncoming(current, incoming).todos).toEqual([])
+  })
+
+  it('カテゴリも同じ規則で守る', () => {
+    const current = {
+      ...emptyStore,
+      categories: [{ id: 'c1', name: '直した', color: 'red' as const, updatedAt: at('2026-08-10T00:00:00.000Z') }],
+    }
+    const incoming = {
+      ...emptyStore,
+      categories: [{ id: 'c1', name: '古い', color: 'blue' as const, updatedAt: at('2026-08-01T00:00:00.000Z') }],
+    }
+    expect(mergeIncoming(current, incoming).categories[0].name).toBe('直した')
+  })
+})
+
+describe('繰り返しの取り消し', () => {
+  it('完了を戻すと、作られた次回ぶんも取り下げる', () => {
+    const parent = todo({ id: 'r', dueDate: '2026-08-17', repeat: 'weekly' })
+    const done = storeReducer(
+      { ...emptyStore, todos: [parent] },
+      { type: 'toggle', id: 'r', now: '2026-08-17T10:00:00.000Z', nextId: 'r2', today: '2026-08-17' },
+    )
+    expect(done.todos).toHaveLength(2)
+
+    const undone = storeReducer(done, {
+      type: 'toggle',
+      id: 'r',
+      now: '2026-08-17T10:01:00.000Z',
+      nextId: 'r3',
+      today: '2026-08-17',
+    })
+    expect(undone.todos.map((t) => t.id)).toEqual(['r'])
+    expect(undone.todos[0].done).toBe(false)
+  })
+
+  it('次回ぶんに手を入れていたら、取り下げない', () => {
+    const parent = todo({ id: 'r', dueDate: '2026-08-17', repeat: 'weekly' })
+    const done = storeReducer(
+      { ...emptyStore, todos: [parent] },
+      { type: 'toggle', id: 'r', now: '2026-08-17T10:00:00.000Z', nextId: 'r2', today: '2026-08-17' },
+    )
+    // 次回ぶんの題名を直した後で、親の完了を戻す。
+    const edited = storeReducer(done, {
+      type: 'update',
+      id: 'r2',
+      patch: { title: '大事な用事に変えた' },
+      now: '2026-08-17T10:00:30.000Z',
+    })
+    const undone = storeReducer(edited, {
+      type: 'toggle',
+      id: 'r',
+      now: '2026-08-17T10:01:00.000Z',
+      nextId: 'r3',
+      today: '2026-08-17',
+    })
+    expect(undone.todos.map((t) => t.id).sort()).toEqual(['r', 'r2'])
   })
 })

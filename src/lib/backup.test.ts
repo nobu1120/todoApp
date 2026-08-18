@@ -19,6 +19,7 @@ const todo = (patch: Partial<Todo> = {}): Todo => ({
   notifiedAt: null,
   priority: 'normal',
   repeat: 'none',
+  spawnedFrom: null,
   ...patch,
 })
 
@@ -28,7 +29,7 @@ describe('書き出し', () => {
   it('版と日時を添えて包む', () => {
     const file = toBackup(store([todo()]), '2026-08-17T00:00:00.000Z')
     expect(file.app).toBe('todoApp')
-    expect(file.schemaVersion).toBe(5)
+    expect(file.schemaVersion).toBe(6)
     expect(file.exportedAt).toBe('2026-08-17T00:00:00.000Z')
     expect(file.store.todos).toHaveLength(1)
   })
@@ -57,7 +58,7 @@ describe('読み込み', () => {
     const result = parseBackup(old)
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.store.schemaVersion).toBe(5)
+      expect(result.store.schemaVersion).toBe(6)
       expect(result.store.todos[0]).toMatchObject({ id: 'x', repeat: 'none', priority: 'normal' })
     }
   })
@@ -95,7 +96,7 @@ describe('取り込みの併合', () => {
 
   it('ファイル側にしか無いカテゴリは足す', () => {
     const current = { ...emptyStore, categories: [] }
-    const incoming = { ...emptyStore, categories: [{ id: 'c1', name: '仕事', color: 'blue' as const }] }
+    const incoming = { ...emptyStore, categories: [{ id: 'c1', name: '仕事', color: 'blue' as const, updatedAt: '2026-08-01T00:00:00.000Z' }] }
     expect(mergeBackup(current, incoming).categories).toHaveLength(1)
   })
 

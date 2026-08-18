@@ -127,7 +127,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
         await step('カテゴリの保存', () =>
           supabase
             .from('todo_categories')
-            .upsert(result.pushCategories.map((c) => toRemoteCategory(c, userId, now))),
+            .upsert(result.pushCategories.map((c) => toRemoteCategory(c, userId))),
         )
       }
       if (result.pushDeletedTodoIds.length > 0) {
@@ -170,9 +170,12 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     const since = pushedUpTo.current
     const todos = local.todos.filter((t) => t.updatedAt > since)
     const graves = local.tombstones.filter((t) => t.deletedAt > since)
+    // カテゴリも送る。送らないと、改名や色の変更が次の全同期で巻き戻る。
+    const categories = local.categories.filter((c) => c.updatedAt > since)
     // 設定もここで送る。送らないと、次の全同期でサーバーの値に巻き戻ってしまう。
     const settingsChanged = local.settings.updatedAt > since
-    if (todos.length === 0 && graves.length === 0 && !settingsChanged) return
+    if (todos.length === 0 && graves.length === 0 && categories.length === 0 && !settingsChanged)
+      return
 
     setStatus('syncing')
     try {
@@ -193,6 +196,11 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
       if (todos.length > 0) {
         await step('タスクの保存', () =>
           supabase.from('todo_items').upsert(todos.map((t) => toRemoteTodo(t, userId))),
+        )
+      }
+      if (categories.length > 0) {
+        await step('カテゴリの保存', () =>
+          supabase.from('todo_categories').upsert(categories.map((c) => toRemoteCategory(c, userId))),
         )
       }
       const deadTodos = graves.filter((g) => g.kind === 'todo').map((g) => g.id)

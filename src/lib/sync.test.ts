@@ -5,6 +5,7 @@ import {
   fromRemoteSettings,
   fromRemoteTodo,
   mergeStore,
+  toRemoteCategory,
   toRemoteSettings,
   toRemoteTodo,
   type RemoteCategory,
@@ -30,6 +31,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     notifiedAt: null,
     priority: 'normal',
     repeat: 'none',
+    spawnedFrom: null,
     ...overrides,
   }
 }
@@ -179,7 +181,7 @@ describe('mergeStore: カテゴリ', () => {
 
   it('サーバーのカテゴリを取り込む', () => {
     const result = mergeStore(store(), snapshot([], [category('c1', '仕事', '2026-08-01T00:00:00.000Z')]))
-    expect(result.store.categories).toEqual([{ id: 'c1', name: '仕事', color: 'blue' }])
+    expect(result.store.categories).toMatchObject([{ id: 'c1', name: '仕事', color: 'blue' }])
   })
 
   it('知らない色は gray に落とす', () => {
@@ -332,5 +334,55 @@ describe('toRemoteSettings', () => {
     }
     const back = fromRemoteSettings(toRemoteSettings(mine, USER, 'Asia/Tokyo'), DEFAULT_SETTINGS)
     expect(back).toEqual({ ...mine, appearance: DEFAULT_SETTINGS.appearance })
+  })
+})
+
+describe('レビューで見つかった穴（回帰）', () => {
+  const cat = (id: string, name: string, updatedAt: string, color = 'blue') => ({
+    id,
+    user_id: USER,
+    name,
+    color,
+    updated_at: updatedAt,
+    deleted_at: null,
+  })
+
+  it('この端末での改名が、サーバーの古い値に巻き戻らない', () => {
+    // 以前はサーバー側を無条件に採っていたため、タブを切り替えて戻るだけで改名が消えた。
+    const local: TodoStore = {
+      ...emptyStore,
+      categories: [{ id: 'c1', name: '副業', color: 'red', updatedAt: '2026-08-10T00:00:00.000Z' }],
+    }
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [cat('c1', '仕事', '2026-08-01T00:00:00.000Z')],
+      settings: null,
+    })
+    expect(result.store.categories[0]).toMatchObject({ name: '副業', color: 'red' })
+    // 送り返す対象にも入る。
+    expect(result.pushCategories.map((c) => c.id)).toEqual(['c1'])
+  })
+
+  it('サーバーの改名のほうが新しければ、そちらを採る', () => {
+    const local: TodoStore = {
+      ...emptyStore,
+      categories: [{ id: 'c1', name: '副業', color: 'red', updatedAt: '2026-08-01T00:00:00.000Z' }],
+    }
+    const result = mergeStore(local, {
+      todos: [],
+      categories: [cat('c1', '仕事', '2026-08-10T00:00:00.000Z')],
+      settings: null,
+    })
+    expect(result.store.categories[0]).toMatchObject({ name: '仕事' })
+    expect(result.pushCategories).toEqual([])
+  })
+
+  it('カテゴリの更新時刻を、そのまま載せて送る', () => {
+    const row = toRemoteCategory(
+      { id: 'c1', name: '仕事', color: 'blue', updatedAt: '2026-08-09T00:00:00.000Z' },
+      USER,
+    )
+    // 送信時刻を入れると、取り込んだだけの値が常に最新に見えて他端末の変更を潰す。
+    expect(row.updated_at).toBe('2026-08-09T00:00:00.000Z')
   })
 })

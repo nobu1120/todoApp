@@ -24,6 +24,7 @@ export type RemoteTodo = {
   subtasks: unknown
   priority: string
   repeat: string | null
+  spawned_from: string | null
   notified_at: string | null
   created_at: string
   updated_at: string
@@ -74,6 +75,7 @@ export function toRemoteTodo(todo: Todo, userId: string): RemoteTodo {
     subtasks: todo.subtasks,
     priority: todo.priority,
     repeat: todo.repeat,
+    spawned_from: todo.spawnedFrom,
     notified_at: todo.notifiedAt,
     created_at: todo.createdAt,
     updated_at: todo.updatedAt,
@@ -82,13 +84,14 @@ export function toRemoteTodo(todo: Todo, userId: string): RemoteTodo {
   }
 }
 
-export function toRemoteCategory(category: Category, userId: string, updatedAt: string) {
+export function toRemoteCategory(category: Category, userId: string) {
   return {
     id: category.id,
     user_id: userId,
     name: category.name,
     color: category.color,
-    updated_at: updatedAt,
+    // タスクや設定と同じく「いつの内容か」をそのまま載せる。
+    updated_at: category.updatedAt,
     deleted_at: null,
   }
 }
@@ -166,6 +169,7 @@ export function fromRemoteTodo(row: RemoteTodo): Todo {
       row.repeat === 'daily' || row.repeat === 'weekly' || row.repeat === 'monthly'
         ? row.repeat
         : 'none',
+    spawnedFrom: typeof row.spawned_from === 'string' ? row.spawned_from : null,
   }
 }
 
@@ -176,6 +180,7 @@ export function fromRemoteCategory(row: RemoteCategory): Category {
     color: COLOR_KEYS.includes(row.color as CategoryColor)
       ? (row.color as CategoryColor)
       : 'gray',
+    updatedAt: row.updated_at,
   }
 }
 
@@ -261,6 +266,8 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
   const pushDeletedCategoryIds: string[] = []
   const seenCategories = new Set<string>()
 
+  const localCategories = new Map(local.categories.map((c) => [c.id, c]))
+
   for (const row of remote.categories) {
     seenCategories.add(row.id)
     const grave = tombstoneById.get(row.id)
@@ -271,7 +278,17 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
       pushDeletedCategoryIds.push(row.id)
       continue
     }
-    mergedCategories.set(row.id, fromRemoteCategory(row))
+
+    // タスクと同じ規則にする。無条件にサーバーを採ると、
+    // この端末での改名・色の変更が毎回巻き戻る。
+    const theirs = fromRemoteCategory(row)
+    const mine = localCategories.get(row.id)
+    if (mine !== undefined && mine.updatedAt > theirs.updatedAt) {
+      mergedCategories.set(row.id, mine)
+      pushCategories.push(mine)
+    } else {
+      mergedCategories.set(row.id, theirs)
+    }
   }
 
   for (const category of local.categories) {

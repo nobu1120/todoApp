@@ -8,7 +8,7 @@ import {
   type TodoPatch,
 } from '../lib/todos'
 import { createCategory } from '../lib/categories'
-import { load, save } from '../lib/storage'
+import { STORAGE_KEY, load, migrate, save } from '../lib/storage'
 import { archiveOld, newId } from '../lib/todos'
 import { mergeBackup } from '../lib/backup'
 import { todayISO } from '../lib/date'
@@ -29,6 +29,24 @@ export function useTodos() {
   useEffect(() => {
     save(store)
   }, [store])
+
+  /*
+   * 別のタブでの変更を取り込む。
+   * タブごとに独立した状態を持っているため、これが無いと後から保存した
+   * タブが前のタブの内容を丸ごと上書きし、片方で足したタスクが消える。
+   */
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY || event.newValue === null) return
+      try {
+        dispatch({ type: 'sync:replace', store: migrate(JSON.parse(event.newValue)) })
+      } catch {
+        // 読めない内容なら、いまの状態のままにしておく。
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   useEffect(() => () => {
     if (undoTimer.current !== null) clearTimeout(undoTimer.current)
@@ -77,8 +95,8 @@ export function useTodos() {
 
       addCategory: (name: string, color: CategoryColor) =>
         dispatch({ type: 'category:add', category: createCategory(name, color) }),
-      updateCategory: (id: string, patch: Partial<Omit<Category, 'id'>>) =>
-        dispatch({ type: 'category:update', id, patch }),
+      updateCategory: (id: string, patch: Partial<Omit<Category, 'id' | 'updatedAt'>>) =>
+        dispatch({ type: 'category:update', id, patch, now: now() }),
       removeCategory: (id: string) => dispatch({ type: 'category:remove', id, now: now() }),
 
       updateSettings: (patch: Partial<Settings>) =>
