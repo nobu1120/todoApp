@@ -78,15 +78,16 @@ iPhone では、**ホーム画面に追加してそのアイコンから起動**
 
 #### 初回だけ必要な設定
 
-Supabase の管理画面で、ログイン用リンクの戻り先を許可する必要があります。
+Supabase の管理画面で、ログイン用リンクの戻り先を設定する必要があります。
 
-Authentication → URL Configuration → **Redirect URLs** に
-`https://nobu1120.github.io/todoApp/**` を追加してください。
+Authentication → URL Configuration で
 
-**これをしないとログインが完了しません。** この Supabase プロジェクトは quiz アプリと
-同居しており、Site URL が `https://niche-quiz-app.vercel.app` になっています。
-戻り先が許可リストに無いと、Supabase はそちらへリダイレクトするため、
-リンクを開いても quiz アプリに着地して Todo アプリには戻ってきません
+- **Site URL**: `https://nobu1120.github.io/todoApp/`
+- **Redirect URLs**: `https://nobu1120.github.io/todoApp/**`
+
+**これをしないとログインが完了しません。** 既定の Site URL は
+`http://localhost:3000` なので、戻り先を設定するまでリンクを開いても
+そこへリダイレクトされ、Todo アプリには戻ってきません
 （ログイン自体は成立しているので、エラーは何も出ません）。
 
 #### 設定しないままログインする方法

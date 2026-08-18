@@ -5,7 +5,7 @@ const TOKEN = 'c3f5a68ac2b2ebd4c200181676564863353c5905754d16eb5701a443'
 
 describe('parseAuthLink', () => {
   it('実際のログインリンクからトークンと種別を取り出す', () => {
-    const link = `https://roofopskzyfpttnsyuwu.supabase.co/auth/v1/verify?token=${TOKEN}&type=magiclink&redirect_to=https%3A%2F%2Fexample.com`
+    const link = `https://agusbaypthehohpqaigc.supabase.co/auth/v1/verify?token=${TOKEN}&type=magiclink&redirect_to=https%3A%2F%2Fexample.com`
     expect(parseAuthLink(link)).toEqual({ tokenHash: TOKEN, type: 'magiclink' })
   })
 

@@ -1,12 +1,21 @@
 -- =============================================================================
 -- Todo アプリのサーバー側定義（現行）
 --
--- quiz アプリと同じ Supabase プロジェクトに相乗りしているため、
--- todo 用のものはすべて todo_ で始める。ここに無いものは quiz のもの。
+-- 専用の Supabase プロジェクト（ref: agusbaypthehohpqaigc / 名前 "todo"）で動く。
+-- 以前は quiz アプリのプロジェクトに相乗りしていたが、Pro プランに移って
+-- 独立させた。テーブル名の todo_ 接頭辞は、移行の履歴を追いやすくするため
+-- そのまま残してある。
 --
+-- 上から順に流せば、空のプロジェクトに一式を再構築できる。
 -- 秘密（VAPID の秘密鍵、cron の合言葉）は todo_config に入れる。
 -- 値はこのファイルには書かない。
 -- =============================================================================
+
+-- --- 拡張 --------------------------------------------------------------------
+
+-- 定期実行（通知の起動・掃除）と、DB から Edge Function を叩くための HTTP。
+create extension if not exists pg_cron;
+create extension if not exists pg_net with schema extensions;
 
 -- --- テーブル ----------------------------------------------------------------
 
@@ -104,6 +113,15 @@ create policy todo_settings_own on public.todo_settings
 create policy todo_push_own on public.todo_push_subscriptions
   for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+/*
+ * ログイン前（anon）にこれらの表を触ることは無い。
+ * RLS だけに頼らず、テーブル権限そのものを外しておく。
+ */
+revoke all on public.todo_items, public.todo_categories, public.todo_settings,
+              public.todo_push_subscriptions, public.todo_config
+  from anon;
+revoke all on public.todo_config from authenticated;
+
 -- --- Realtime ----------------------------------------------------------------
 
 /*
@@ -168,13 +186,15 @@ begin
   end if;
 
   perform net.http_post(
-    url := 'https://roofopskzyfpttnsyuwu.supabase.co/functions/v1/todo-send-reminders',
+    url := 'https://agusbaypthehohpqaigc.supabase.co/functions/v1/todo-send-reminders',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', secret),
     body := '{}'::jsonb,
     timeout_milliseconds := 20000
   );
 end;
 $$;
+
+revoke execute on function public.todo_trigger_reminders() from public, anon, authenticated;
 
 /*
  * 論理削除した行の掃除。
@@ -205,8 +225,21 @@ revoke execute on function public.todo_purge_deleted() from public, anon, authen
 
 -- --- cron --------------------------------------------------------------------
 
+-- 一度だけ流す（二度目は重複エラーになるので、貼り直すときは unschedule してから）。
 -- select cron.schedule('todo-send-reminders', '* * * * *', 'select public.todo_trigger_reminders();');
 -- select cron.schedule('todo-purge-deleted',  '17 4 * * *', 'select public.todo_purge_deleted();');
+
+-- --- 秘密 --------------------------------------------------------------------
+
+-- 値は書かない。プロジェクトを作り直したときは手で入れる。
+-- insert into public.todo_config (key, value) values
+--   ('vapid_public_key',  '...'),
+--   ('vapid_private_key', '...'),
+--   ('vapid_subject',     'mailto:...'),
+--   ('cron_secret',       '...');
+--
+-- vapid_public_key は src/lib/supabase.ts の VAPID_PUBLIC_KEY と一致していること。
+-- ずれると、購読済みの端末に通知が届かなくなる。
 
 -- --- 健全性の確認 ------------------------------------------------------------
 

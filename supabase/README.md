@@ -11,8 +11,8 @@
 
 ## 注意
 
-- **quiz アプリと同じプロジェクトに相乗り**しています。todo 用のものはすべて `todo_` で始まります。
-  ここに無いテーブル（`profiles` `attempts` など）は quiz のもので、触りません。
+- **専用プロジェクト**（ref `agusbaypthehohpqaigc` / 名前 `todo`）で動いています。
+  以前は quiz アプリのプロジェクトに相乗りしていた名残で、名前はすべて `todo_` で始まります。
 - 秘密（VAPID の秘密鍵、cron の合言葉）は `todo_config` テーブルに入っており、
   **このリポジトリには含めません**。`schema.sql` にも値は書いていません。
 - `todo_config` は RLS 有効・ポリシー無しにしてあります。つまり anon / authenticated からは

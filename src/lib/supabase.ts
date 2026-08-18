@@ -5,11 +5,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * リポジトリが public でも問題ない設計になっている
  * （service_role キーだけは絶対にここへ置かない）。
  *
- * quiz プロジェクトに相乗りしているため、テーブル名は todo_ で始まる。
+ * 専用プロジェクト（ref: agusbaypthehohpqaigc）。以前は quiz と相乗りしていた
+ * 名残で、テーブル名は todo_ で始まる。
  */
-export const SUPABASE_URL = 'https://roofopskzyfpttnsyuwu.supabase.co'
+export const SUPABASE_URL = 'https://agusbaypthehohpqaigc.supabase.co'
 export const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvb2ZvcHNrenlmcHR0bnN5dXd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MzA0NTcsImV4cCI6MjA5OTMwNjQ1N30.ZXSdss9UoijFiihQFIs0RugNOELn8gbDCxkfV51TqRo'
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndXNiYXlwdGhlaG9ocHFhaWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMjAwMjMsImV4cCI6MjEwMjU5NjAyM30.owd-UT6bj8lGlR3ELWYe_3vwnhqV_OB4B_RF4kTFrEw'
 
 /** Web Push の公開鍵。秘密鍵はサーバー側にしか無い。 */
 export const VAPID_PUBLIC_KEY =
