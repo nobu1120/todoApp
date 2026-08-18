@@ -528,14 +528,19 @@
  * 明暗だけは合わせる。
  */
 :root {
+  /*
+   * 明るい地色に対して 3:1（UI 部品の下限）を全テーマで satisfy する明度にする。
+   * 橙 #d9822b・青緑 #14a3a3・緑 #3f9d5a は、生成り系のテーマの上で
+   * 2.6〜3.0 しか出ず、色があること自体が分からなかった。
+   */
   --cat-blue: #3b7dd8;
-  --cat-green: #3f9d5a;
-  --cat-orange: #d9822b;
+  --cat-green: #2f7a45;
+  --cat-orange: #a85f10;
   --cat-purple: #8b5cf6;
-  --cat-red: #e0393e;
-  --cat-teal: #14a3a3;
-  --cat-pink: #e0459b;
-  --cat-gray: #8a8a8a;
+  --cat-red: #d02f34;
+  --cat-teal: #0d7d7d;
+  --cat-pink: #d0348c;
+  --cat-gray: #767676;
 
   font-family: var(--font);
 }
@@ -1552,8 +1557,28 @@ body:has(.app--calendar) {
 }
 
 /* 分類は色ではなく文字で示す */
+/*
+ * 分類の色は一覧にも出す。
+ * 「選ぶ・管理する場面にだけ」としていたが、絞り込みのチップを畳んだ結果
+ * 色がどこにも見えなくなった。どの分類かを一目で分かるほうが役に立つ。
+ *
+ * 文字ではなく点に色を載せる。分類の色はテーマから独立させているので、
+ * 20 通りの地色すべてで本文の 4.5:1 を保証するのは無理がある。
+ * 点なら UI 部品として 3:1 でよく、どのテーマでも成立する。
+ */
 .todo-item__cat {
   letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.todo-item__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cat, var(--text-muted));
+  flex: none;
 }
 
 .todo-item__count {
@@ -2660,6 +2685,17 @@ body:has(.selection-bar) {
 }
 
 /* カテゴリの絞り込みは畳んでおく（常時 80px を占めていた）。 */
+.filter-bar__cats__swatches {
+  display: inline-flex;
+  gap: 4px;
+}
+.filter-bar__cats__swatches i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cat, var(--text-muted));
+}
+
 .filter-bar__cats > summary {
   display: flex;
   align-items: center;

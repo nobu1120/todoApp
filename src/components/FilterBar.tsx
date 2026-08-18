@@ -109,6 +109,14 @@ export function FilterBar({
             {filter.categoryId === null
               ? 'カテゴリで絞り込む'
               : (categories.find((c) => c.id === filter.categoryId)?.name ?? 'カテゴリ')}
+            {/* 畳んでいても、どんな分類があるかは色で見せる。 */}
+            {filter.categoryId === null && (
+              <span className="filter-bar__cats__swatches" aria-hidden="true">
+                {usedCategories.map((c) => (
+                  <i key={c.id} data-color={c.color} />
+                ))}
+              </span>
+            )}
           </summary>
         <nav className="filter-bar__row" aria-label="カテゴリで絞り込み">
           <button

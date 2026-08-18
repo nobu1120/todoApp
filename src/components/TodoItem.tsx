@@ -90,7 +90,12 @@ export const TodoItem = memo(function TodoItem({
 
         {hasMeta && (
           <span className="todo-item__meta">
-            {category !== null && <span className="todo-item__cat">{category.name}</span>}
+            {category !== null && (
+              <span className="todo-item__cat" data-color={category.color}>
+                <span className="todo-item__dot" aria-hidden="true" />
+                {category.name}
+              </span>
+            )}
             {progress !== null && (
               <span className="todo-item__count">
                 {progress.done}/{progress.total}
