@@ -4,6 +4,8 @@ type Props = {
   /** 同期の失敗内容。null なら失敗していない。 */
   syncError: string | null
   signedIn: boolean
+  /** ログイン状態をまだ確かめられていない。未ログインと同じ扱いにしない。 */
+  authPending: boolean
   /** 端末にあるタスクの件数。0 件なら何も出さない。 */
   count: number
   onOpenAccount: () => void
@@ -19,7 +21,14 @@ type Props = {
  *   ブラウザのキャッシュ削除でタスクが失われた。
  *   失敗と「この端末にしかない」ことは、どちらも一覧の上に出す。
  */
-export function DataNotice({ syncError, signedIn, count, onOpenAccount, onOpenSettings }: Props) {
+export function DataNotice({
+  syncError,
+  signedIn,
+  authPending,
+  count,
+  onOpenAccount,
+  onOpenSettings,
+}: Props) {
   if (syncError !== null) {
     return (
       <div className="notice notice--warn" role="alert">
@@ -37,6 +46,9 @@ export function DataNotice({ syncError, signedIn, count, onOpenAccount, onOpenSe
       </div>
     )
   }
+
+  // 確かめている最中は、どちらとも言わない。
+  if (authPending) return null
 
   // ログインしていないと、データはこの端末の中だけにある。
   // ブラウザのキャッシュ（サイトデータ）を消すと一緒に消える。

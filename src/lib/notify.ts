@@ -46,6 +46,30 @@ export async function ensureServiceWorker(): Promise<ServiceWorkerRegistration |
 }
 
 /**
+ * いま読み込んだ資産を Service Worker に伝えて、その場で貯めてもらう。
+ *
+ * ビルド成果物のファイル名はハッシュ付きで SW 側からは分からない。
+ * これをしないと初回訪問では何も貯まらず、「一度開いたのに圏外で真っ白」になる。
+ */
+export async function cacheCurrentAssets(): Promise<void> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const worker = reg.active
+    if (worker === null) return
+
+    const urls = performance
+      .getEntriesByType('resource')
+      .map((e) => e.name)
+      .filter((url) => url.startsWith(location.origin))
+
+    worker.postMessage({ type: 'cache-now', urls: [location.href, ...urls] })
+  } catch {
+    // 貯められなくてもアプリは動く。
+  }
+}
+
+/**
  * base64url の VAPID 公開鍵を、PushManager が要求する形に直す。
  * ArrayBuffer を明示して確保する。Uint8Array の型は SharedArrayBuffer も
  * 取りうるため、そのままでは applicationServerKey に渡せない。

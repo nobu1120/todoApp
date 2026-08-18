@@ -9,12 +9,23 @@
  *
  * オフライン:
  *   ビルド成果物のファイル名はハッシュ付きで、ここからは分からない。
- *   そこで「一度読んだものを貯める」方式にする（stale-while-revalidate）。
- *   一度でも開いていれば、圏外・機内モードでもそのまま起動できる。
- *   データは元から端末内にあるので、これだけで通常どおり使える。
+ *   そこで 2 段構えにする。
+ *     1) 画面側が「いま読み込んだ資産の一覧」を message で渡してくる（cache-now）。
+ *        初回訪問でも、その訪問のうちに資産が貯まる。
+ *     2) 以後は取得したものを貯め直す（stale-while-revalidate）。
+ *   これをしないと、初回訪問だけでは JS も CSS もキャッシュされず、
+ *   「一度開いたのに圏外で真っ白」になる（実際そうなっていた）。
  */
 
-const CACHE = 'todo-v1'
+const CACHE = 'todo-v2'
+
+/*
+ * 取り出すときは Vary を無視する。
+ * 配信側が `Vary: Origin` を返すと、保存したときと取り出すときで
+ * Origin ヘッダの有無が違うだけで一致しなくなり、キャッシュがあるのに
+ * 「見つからない」になる（実測でこれに当たった）。
+ */
+const MATCH = { ignoreVary: true }
 
 self.addEventListener('install', (event) => {
   // 起点だけは先に取っておく。以降は開いたものが順に貯まる。
@@ -26,6 +37,21 @@ self.addEventListener('install', (event) => {
   )
   // 更新したらすぐ次の版に入れ替える。
   self.skipWaiting()
+})
+
+/**
+ * 画面から「この資産を持っておいて」と渡される。
+ * ハッシュ付きのファイル名は SW 側からは分からないので、読み込んだ側に教えてもらう。
+ */
+self.addEventListener('message', (event) => {
+  const data = event.data
+  if (!data || data.type !== 'cache-now' || !Array.isArray(data.urls)) return
+  event.waitUntil(
+    caches.open(CACHE).then((cache) =>
+      // 1 つ失敗しても他を諦めない（addAll は全か無かなので使わない）。
+      Promise.all(data.urls.map((url) => cache.add(url).catch(() => undefined))),
+    ),
+  )
 })
 
 self.addEventListener('activate', (event) => {
@@ -53,24 +79,38 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(() =>
-        caches.match(request).then((hit) => hit || caches.match('./')).then((hit) => hit || fetch(request)),
+        caches
+          .match(request, MATCH)
+          .then((hit) => hit || caches.match('./', MATCH))
+          .then(
+            (hit) =>
+              hit || new Response('オフラインです', { status: 503, statusText: 'Offline' }),
+          ),
       ),
     )
     return
   }
 
   event.respondWith(
-    caches.match(request).then((hit) => {
+    caches.match(request, MATCH).then((hit) => {
       const fresh = fetch(request)
         .then((response) => {
           if (response && response.ok) {
             const copy = response.clone()
-            caches.open(CACHE).then((cache) => cache.put(request, copy))
+            // 容量超過などで失敗しても、応答そのものは返す。
+            caches.open(CACHE).then((cache) => cache.put(request, copy).catch(() => undefined))
           }
           return response
         })
         .catch(() => hit)
-      return hit || fresh
+      // キャッシュも無くネットワークも死んでいるとき、undefined を返すと
+      // 応答なしで真っ白になる。何が起きたか分かる形で返す。
+      return (
+        hit ||
+        fresh.then(
+          (r) => r || new Response('オフラインです', { status: 503, statusText: 'Offline' }),
+        )
+      )
     }),
   )
 })

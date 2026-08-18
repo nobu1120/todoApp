@@ -8,6 +8,7 @@ afterEach(cleanup)
 const props = {
   syncError: null as string | null,
   signedIn: false,
+  authPending: false,
   count: 0,
   onOpenAccount: vi.fn(),
   onOpenSettings: vi.fn(),
@@ -36,6 +37,18 @@ describe('データの警告', () => {
   it('タスクが無いうちは出さない（初めて開いた人を驚かせない）', () => {
     const { container } = render(<DataNotice {...props} count={0} />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('ログイン状態を確かめている間は、未ログインと決めつけない', () => {
+    // 読み込みに失敗しただけなのに「この端末の中だけ」と出して
+    // 誤って安心させる経路があった。
+    const { container } = render(<DataNotice {...props} authPending count={5} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('確かめている最中でも、同期の失敗は隠さない', () => {
+    render(<DataNotice {...props} authPending syncError="ログイン状態を確かめられませんでした" />)
+    expect(screen.getByRole('alert')).toBeTruthy()
   })
 
   it('ログイン済みで問題が無ければ出さない', () => {

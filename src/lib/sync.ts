@@ -1,6 +1,6 @@
 import type { Category, Settings, Todo, TodoStore, Tombstone } from '../types'
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
-import { CURRENT_VERSION } from './storage'
+import { ARCHIVE_DAYS, CURRENT_VERSION } from './storage'
 import { isThemeId } from './themes'
 import { HM_RE } from './date'
 import type { CategoryColor } from '../types'
@@ -127,10 +127,11 @@ export function fromRemoteSettings(row: RemoteSettings, fallback: Settings): Set
     // 明暗は同期しない。この端末の指定をそのまま残す。
     appearance: fallback.appearance,
     sortMode: row.sort_mode === 'priority' || row.sort_mode === 'due' ? row.sort_mode : fallback.sortMode,
-    archiveAfterDays:
-      typeof row.archive_after_days === 'number' && row.archive_after_days >= 0
-        ? row.archive_after_days
-        : fallback.archiveAfterDays,
+    // 保存期間はデータを消す設定なので、保存時と同じ選択肢だけを受け入れる。
+    // ここを緩くすると、サーバー経由で「1 日で消す」のような値が入りうる。
+    archiveAfterDays: ARCHIVE_DAYS.includes(row.archive_after_days as number)
+      ? (row.archive_after_days as number)
+      : fallback.archiveAfterDays,
     updatedAt: row.updated_at,
   }
 }

@@ -9,7 +9,7 @@ import {
 } from '../lib/todos'
 import { createCategory } from '../lib/categories'
 import { load, save } from '../lib/storage'
-import { archiveOld } from '../lib/todos'
+import { archiveOld, newId } from '../lib/todos'
 import { mergeBackup } from '../lib/backup'
 import { todayISO } from '../lib/date'
 
@@ -47,12 +47,20 @@ export function useTodos() {
           type: 'toggle',
           id,
           now: now(),
-          nextId: crypto.randomUUID(),
+          nextId: newId(),
           today: todayISO(),
         }),
 
       bulkToggle: (ids: string[], done: boolean) =>
-        dispatch({ type: 'bulk:toggle', ids, done, now: now() }),
+        dispatch({
+          type: 'bulk:toggle',
+          ids,
+          done,
+          now: now(),
+          // 繰り返しタスクが混ざっていても次回を作れるよう、人数ぶん用意する。
+          nextIds: ids.map(() => newId()),
+          today: todayISO(),
+        }),
       bulkDue: (ids: string[], dueDate: string | null) =>
         dispatch({ type: 'bulk:due', ids, dueDate, now: now() }),
       bulkRemove: (ids: string[]) => dispatch({ type: 'bulk:remove', ids, now: now() }),

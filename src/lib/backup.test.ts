@@ -105,3 +105,51 @@ describe('取り込みの併合', () => {
     expect(merged.todos[0].categoryId).toBeNull()
   })
 })
+
+describe('レビューで見つかった穴（回帰）', () => {
+  it('戻したタスクの墓標を取り下げる（復元が削除に化けない）', () => {
+    // 墓標が残ったままだと、次の同期で「削除」として送られ、
+    // 復元したはずのタスクがサーバーからも消えていた。
+    const current: TodoStore = {
+      ...emptyStore,
+      todos: [],
+      tombstones: [{ id: 'gone', kind: 'todo', deletedAt: '2026-03-01T00:00:00.000Z' }],
+    }
+    const merged = mergeBackup(current, store([todo({ id: 'gone', title: '戻したい' })]))
+    expect(merged.todos.map((t) => t.id)).toEqual(['gone'])
+    expect(merged.tombstones).toEqual([])
+  })
+
+  it('関係のない墓標は残す', () => {
+    const current: TodoStore = {
+      ...emptyStore,
+      tombstones: [{ id: 'other', kind: 'todo', deletedAt: '2026-03-01T00:00:00.000Z' }],
+    }
+    const merged = mergeBackup(current, store([todo({ id: 'gone' })]))
+    expect(merged.tombstones.map((t) => t.id)).toEqual(['other'])
+  })
+
+  it('ファイルの設定が新しければ、設定も戻す', () => {
+    const current: TodoStore = {
+      ...emptyStore,
+      settings: { ...emptyStore.settings, defaultNotifyTime: '09:00', updatedAt: '2026-01-01T00:00:00.000Z' },
+    }
+    const incoming: TodoStore = {
+      ...emptyStore,
+      settings: { ...emptyStore.settings, defaultNotifyTime: '07:30', updatedAt: '2026-08-01T00:00:00.000Z' },
+    }
+    expect(mergeBackup(current, incoming).settings.defaultNotifyTime).toBe('07:30')
+  })
+
+  it('ファイルの設定が古ければ、今の設定を残す', () => {
+    const current: TodoStore = {
+      ...emptyStore,
+      settings: { ...emptyStore.settings, defaultNotifyTime: '07:30', updatedAt: '2026-08-01T00:00:00.000Z' },
+    }
+    const incoming: TodoStore = {
+      ...emptyStore,
+      settings: { ...emptyStore.settings, defaultNotifyTime: '09:00', updatedAt: '2026-01-01T00:00:00.000Z' },
+    }
+    expect(mergeBackup(current, incoming).settings.defaultNotifyTime).toBe('07:30')
+  })
+})

@@ -62,6 +62,10 @@ export function parseBackup(text: string, now: number = Date.now()): ImportResul
 /**
  * 読み込んだ内容を今のデータに足す。同じ id は「更新が新しいほう」を残す。
  * 置き換えではなく併合にしておくと、間違えて古いファイルを入れても全部は消えない。
+ *
+ * 取り込んだ id の墓標は必ず取り下げる。これをしないと、
+ * 「間違えて消したタスクをファイルから戻す」という復旧そのものが、
+ * 次の同期で削除として送られ、サーバーからも消える。
  */
 export function mergeBackup(current: TodoStore, incoming: TodoStore): TodoStore {
   const todos = new Map(current.todos.map((t) => [t.id, t]))
@@ -74,11 +78,18 @@ export function mergeBackup(current: TodoStore, incoming: TodoStore): TodoStore 
   for (const c of incoming.categories) if (!categories.has(c.id)) categories.set(c.id, c)
 
   const known = new Set(categories.keys())
+  const restored = new Set([...incoming.todos.map((t) => t.id), ...incoming.categories.map((c) => c.id)])
+
   return {
     ...current,
     todos: [...todos.values()].map((t) =>
       t.categoryId !== null && !known.has(t.categoryId) ? { ...t, categoryId: null } : t,
     ),
     categories: [...categories.values()],
+    // 戻したものの墓標は取り下げる（他の追加経路と同じ扱いにする）。
+    tombstones: current.tombstones.filter((t) => !restored.has(t.id)),
+    // 設定も他の同期経路と同じ規則（更新が新しいほうを採る）で扱う。
+    settings:
+      incoming.settings.updatedAt > current.settings.updatedAt ? incoming.settings : current.settings,
   }
 }

@@ -22,6 +22,17 @@ export type NewTodoInput = {
 
 const PRIORITY_RANK: Record<Todo['priority'], number> = { high: 0, normal: 1, low: 2 }
 
+/**
+ * id を作る。crypto.randomUUID は安全なコンテキスト（https / localhost）にしか
+ * 無いので、無い環境では時刻と乱数で代替する（1 人用なので衝突は実質起きない）。
+ */
+export function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 /** 編集できるフィールドだけを露出する。id や createdAt は書き換えさせない。 */
 export type TodoPatch = Partial<
   Pick<
@@ -33,7 +44,7 @@ export type TodoPatch = Partial<
 export function createTodo(
   input: NewTodoInput,
   now: string = new Date().toISOString(),
-  id: string = crypto.randomUUID(),
+  id: string = newId(),
 ): Todo {
   return {
     id,
@@ -65,17 +76,26 @@ export function nextDueDate(
   today: string = todayISO(),
 ): string | null {
   if (dueDate === null || repeat === 'none') return null
-  const step = (from: string): string =>
-    repeat === 'daily'
-      ? addDays(from, 1)
-      : repeat === 'weekly'
-        ? addDays(from, 7)
-        : addMonthsToDate(from, 1)
 
-  let next = step(dueDate)
-  // 取りこぼしを詰めるが、暴走しないよう回数で頭打ちにする。
-  for (let i = 0; i < 400 && next <= today; i++) next = step(next)
-  return next
+  /*
+   * 毎月は「元の日にち」を基準に数える。
+   * 1 回進めた結果から次を数えると、末日の丸めで日にちが後戻りしていく
+   * （1/31 → 2/28 → 3/28 → …）。基準は動かさず、回数だけ増やす。
+   */
+  const step = (n: number): string =>
+    repeat === 'daily'
+      ? addDays(dueDate, n)
+      : repeat === 'weekly'
+        ? addDays(dueDate, n * 7)
+        : addMonthsToDate(dueDate, n)
+
+  // 取りこぼしを詰める。長く放置したぶんは飛ばし、必ず今日より後にする。
+  const LIMIT = 1200
+  let n = 1
+  while (n < LIMIT && step(n) <= today) n++
+  const next = step(n)
+  // 上限に当たっても過去日は返さない（生成直後に期限切れで並ぶのを避ける）。
+  return next > today ? next : addDays(today, 1)
 }
 
 /** 完了した繰り返しタスクから、次回ぶんを作る。 */
@@ -96,7 +116,7 @@ export function repeatOf(todo: Todo, now: string, today: string, id: string): To
   }
 }
 
-export function createSubtask(title: string, id: string = crypto.randomUUID()): Subtask {
+export function createSubtask(title: string, id: string = newId()): Subtask {
   return { id, title: title.trim(), done: false }
 }
 
@@ -109,7 +129,15 @@ export type Action =
   /** nextId / today は繰り返しタスクの次回ぶんを作るときだけ使う。 */
   | { type: 'toggle'; id: string; now: string; nextId?: string; today?: string }
   | { type: 'remove'; id: string; now: string }
-  | { type: 'bulk:toggle'; ids: string[]; done: boolean; now: string }
+  | {
+      type: 'bulk:toggle'
+      ids: string[]
+      done: boolean
+      now: string
+      /** 繰り返しタスクの次回ぶんに使う id。件数ぶん用意する。 */
+      nextIds?: string[]
+      today?: string
+    }
   | { type: 'bulk:due'; ids: string[]; dueDate: string | null; now: string }
   | { type: 'bulk:remove'; ids: string[]; now: string }
   /** 同期で受け取った内容をそのまま反映する。updatedAt は触らない。 */
@@ -197,19 +225,27 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
 
     case 'bulk:toggle': {
       const ids = new Set(action.ids)
-      return {
-        ...store,
-        todos: store.todos.map((todo) =>
-          ids.has(todo.id) && todo.done !== action.done
-            ? {
-                ...todo,
-                done: action.done,
-                completedAt: action.done ? action.now : null,
-                updatedAt: action.now,
-              }
-            : todo,
-        ),
-      }
+      // 個別の完了と揃える。ここだけ次回を作らないと、まとめて片付けた
+      // 繰り返しタスクが静かに止まってしまう。
+      const spawned: Todo[] = []
+      const todos = store.todos.map((todo) => {
+        if (!ids.has(todo.id) || todo.done === action.done) return todo
+        if (action.done && action.nextIds !== undefined) {
+          const nextId = action.nextIds[spawned.length] ?? action.nextIds[0]
+          const next =
+            nextId === undefined
+              ? null
+              : repeatOf(todo, action.now, action.today ?? action.now.slice(0, 10), nextId)
+          if (next !== null) spawned.push(next)
+        }
+        return {
+          ...todo,
+          done: action.done,
+          completedAt: action.done ? action.now : null,
+          updatedAt: action.now,
+        }
+      })
+      return { ...store, todos: [...todos, ...spawned] }
     }
 
     case 'bulk:due': {
@@ -403,27 +439,42 @@ export function filterTodos(todos: Todo[], filter: Filter, today: string = today
 }
 
 /**
+ * 完了から一定期間たったタスクを消す対象を挙げる。
+ * 実際に消す前に「何件消えるか」を見せるためにも使う。
+ */
+export function staleTodos(store: TodoStore, now: string): Todo[] {
+  const days = store.settings.archiveAfterDays
+  if (days <= 0) return []
+  const today = now.slice(0, 10)
+  return store.todos.filter(
+    (t) =>
+      t.done &&
+      t.completedAt !== null &&
+      // 壊れた日時で消してしまわないよう、読めるものだけを対象にする。
+      !Number.isNaN(Date.parse(t.completedAt)) &&
+      // diffInDays(a, b) は a - b。「今日 - 完了日」が保存期間を超えたら消す。
+      diffInDays(today, t.completedAt.slice(0, 10)) >= days,
+  )
+}
+
+/**
  * 完了から一定期間たったタスクを取り除く。
  * 放っておくと完了タスクが無限に溜まり、同期のたびに全件を往復することになる。
  * 消えたことを他の端末にも伝えるため、墓標を残す。
+ *
+ * 既定は「消さない」（設定で明示的に選んだときだけ効く）。
  */
 export function archiveOld(store: TodoStore, now: string): TodoStore {
-  const days = store.settings.archiveAfterDays
-  if (days <= 0) return store
-
-  const today = now.slice(0, 10)
-  const stale = store.todos.filter(
-    // diffInDays(a, b) は a - b。「今日 - 完了日」が保存期間を超えたら消す。
-    (t) => t.done && t.completedAt !== null && diffInDays(today, t.completedAt.slice(0, 10)) >= days,
-  )
+  const stale = staleTodos(store, now)
   if (stale.length === 0) return store
 
   const ids = new Set(stale.map((t) => t.id))
   return {
     ...store,
     todos: store.todos.filter((t) => !ids.has(t.id)),
+    // 同じ id の墓標を二重に積まない。
     tombstones: [
-      ...store.tombstones,
+      ...store.tombstones.filter((t) => !ids.has(t.id)),
       ...stale.map((t) => ({ id: t.id, kind: 'todo' as const, deletedAt: now })),
     ],
   }

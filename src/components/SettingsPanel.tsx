@@ -5,6 +5,7 @@ import { CATEGORY_COLORS } from '../lib/categories'
 import { Icon } from './Icon'
 import { ThemePicker } from './ThemePicker'
 import { DataPanel } from './DataPanel'
+import { staleTodos } from '../lib/todos'
 
 type Props = {
   settings: Settings
@@ -143,7 +144,18 @@ export function SettingsPanel({
           <span className="field__label">古い完了タスクを自動で消す</span>
           <select
             value={settings.archiveAfterDays}
-            onChange={(e) => onUpdateSettings({ archiveAfterDays: Number(e.target.value) })}
+            onChange={(e) => {
+              const days = Number(e.target.value)
+              // 消える件数を先に見せて、そのうえで選ばせる。
+              const willDelete = staleTodos({ ...store, settings: { ...settings, archiveAfterDays: days } }, new Date().toISOString())
+              if (willDelete.length > 0) {
+                const ok = window.confirm(
+                  `いま ${willDelete.length} 件が対象になります。\n次にアプリを開いたときに消え、他の端末とサーバーからも消えます。\n続けますか？`,
+                )
+                if (!ok) return
+              }
+              onUpdateSettings({ archiveAfterDays: days })
+            }}
           >
             <option value={0}>消さない</option>
             <option value={30}>完了から 30 日</option>
@@ -152,8 +164,9 @@ export function SettingsPanel({
           </select>
         </label>
         <p className="detail__hint">
-          完了したタスクは放っておくと溜まり続け、同期のたびに全件をやり取りすることになります。
-          消えたことは他の端末にも伝わります。
+          既定は「消さない」です。完了したタスクは放っておくと溜まり続け、同期のたびに
+          全件をやり取りすることになるので、気になったら選んでください。
+          <strong>消えたことは他の端末とサーバーにも伝わり、取り消せません。</strong>
         </p>
       </section>
 

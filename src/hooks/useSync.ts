@@ -40,18 +40,37 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
    * 使わない人に 220KB を配らない）。ログイン操作をした時点で読み込まれる。
    */
   const [needsAuth, setNeedsAuth] = useState(() => hasStoredSession())
+  /*
+   * 前にログインした痕跡があるのに、まだセッションを確かめられていない状態。
+   * ここを「未ログイン」と同じ扱いにすると、読み込みに失敗しただけなのに
+   * 「データはこの端末の中だけにあります」と誤って安心させてしまう。
+   */
+  const [authPending, setAuthPending] = useState(() => hasStoredSession())
 
   useEffect(() => {
     if (!needsAuth) return
     let unsubscribe: (() => void) | null = null
     let cancelled = false
+    setAuthPending(true)
 
-    void getSupabase().then((supabase) => {
-      if (cancelled) return
-      void supabase.auth.getSession().then(({ data }) => setSession(data.session))
-      const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
-      unsubscribe = () => data.subscription.unsubscribe()
-    })
+    void getSupabase()
+      .then((supabase) => {
+        if (cancelled) return
+        void supabase.auth.getSession().then(({ data }) => {
+          setSession(data.session)
+          setAuthPending(false)
+        })
+        const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+        unsubscribe = () => data.subscription.unsubscribe()
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setAuthPending(false)
+        setStatus('error')
+        setError(
+          `ログイン状態を確かめられませんでした（${err instanceof Error ? err.message : String(err)}）。この端末の変更はまだ送られていません。`,
+        )
+      })
 
     return () => {
       cancelled = true
@@ -159,32 +178,49 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     try {
       const supabase = await getSupabase()
       const now = new Date().toISOString()
+
+      /*
+       * ここも「失敗しても止めない、ただし必ず報せる」。
+       * 以前は削除の送信だけ戻り値を見ておらず、失敗しても水位（pushedUpTo）が
+       * 進むので二度と再送されず、しかも画面は「同期済み」のままだった。
+       */
+      const failures: string[] = []
+      const step = async (label: string, run: () => PromiseLike<{ error: unknown }>) => {
+        const { error: e } = await run()
+        if (e) failures.push(`${label}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+
       if (todos.length > 0) {
-        const { error: e } = await supabase
-          .from('todo_items')
-          .upsert(todos.map((t) => toRemoteTodo(t, userId)))
-        if (e) throw e
+        await step('タスクの保存', () =>
+          supabase.from('todo_items').upsert(todos.map((t) => toRemoteTodo(t, userId))),
+        )
       }
       const deadTodos = graves.filter((g) => g.kind === 'todo').map((g) => g.id)
       const deadCategories = graves.filter((g) => g.kind === 'category').map((g) => g.id)
       if (deadTodos.length > 0) {
-        await supabase
-          .from('todo_items')
-          .update({ deleted_at: now, updated_at: now })
-          .in('id', deadTodos)
+        await step('タスクの削除', () =>
+          supabase
+            .from('todo_items')
+            .update({ deleted_at: now, updated_at: now })
+            .in('id', deadTodos),
+        )
       }
       if (deadCategories.length > 0) {
-        await supabase
-          .from('todo_categories')
-          .update({ deleted_at: now, updated_at: now })
-          .in('id', deadCategories)
+        await step('カテゴリの削除', () =>
+          supabase
+            .from('todo_categories')
+            .update({ deleted_at: now, updated_at: now })
+            .in('id', deadCategories),
+        )
       }
       if (settingsChanged) {
-        const { error: e } = await supabase
-          .from('todo_settings')
-          .upsert(toRemoteSettings(local.settings, userId, localTimeZone()))
-        if (e) throw e
+        await step('設定の保存', () =>
+          supabase.from('todo_settings').upsert(toRemoteSettings(local.settings, userId, localTimeZone())),
+        )
       }
+
+      // 届かなかったぶんを次回も送れるよう、失敗したときは水位を進めない。
+      if (failures.length > 0) throw new Error(failures.join(' / '))
 
       pushedUpTo.current = now
       setLastSyncedAt(new Date().toISOString())
@@ -326,6 +362,8 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
 
   return {
     session,
+    /** ログイン状態をまだ確かめられていない。未ログインと区別する。 */
+    authPending,
     email: session?.user.email ?? null,
     status,
     error,

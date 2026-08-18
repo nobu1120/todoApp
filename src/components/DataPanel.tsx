@@ -22,13 +22,26 @@ export function DataPanel({ store, onImport }: Props) {
     const a = document.createElement('a')
     a.href = url
     a.download = backupFileName()
+    // Firefox は DOM に入っていない要素のクリックを無視する。
+    document.body.appendChild(a)
     a.click()
-    // 参照を残すとメモリを掴んだままになる。
-    URL.revokeObjectURL(url)
+    a.remove()
+    // 即座に解放するとダウンロードが始まる前に切れることがある。
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
     setMessage({ ok: true, text: `${store.todos.length} 件を書き出しました。` })
   }
 
+  /** 人が選ぶファイルなので、いくらでも大きいものが来うる。 */
+  const MAX_BYTES = 20 * 1024 * 1024
+
   async function handleFile(file: File) {
+    if (file.size > MAX_BYTES) {
+      setMessage({
+        ok: false,
+        text: `ファイルが大きすぎます（${Math.round(file.size / 1024 / 1024)}MB）。このアプリの書き出しファイルではないようです。`,
+      })
+      return
+    }
     const result = parseBackup(await file.text())
     if (!result.ok) {
       setMessage({ ok: false, text: result.reason })

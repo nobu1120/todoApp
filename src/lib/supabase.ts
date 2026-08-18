@@ -29,16 +29,23 @@ let clientPromise: Promise<SupabaseClient> | null = null
 
 export function getSupabase(): Promise<SupabaseClient> {
   if (clientPromise === null) {
-    clientPromise = import('@supabase/supabase-js').then(({ createClient }) =>
-      createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          // メールのリンクから戻ってきたときにセッションを拾う。
-          detectSessionInUrl: true,
-        },
-      }),
-    )
+    clientPromise = import('@supabase/supabase-js')
+      .then(({ createClient }) =>
+        createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            // メールのリンクから戻ってきたときにセッションを拾う。
+            detectSessionInUrl: true,
+          },
+        }),
+      )
+      .catch((err) => {
+        // 失敗した Promise を握ったままにすると、以後の操作が全部失敗し続ける。
+        // 次の機会に読み直せるよう捨てる（圏外・古いキャッシュ・配信直後など）。
+        clientPromise = null
+        throw err
+      })
   }
   return clientPromise
 }

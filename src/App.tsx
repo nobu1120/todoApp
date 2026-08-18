@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Filter, StatusFilter } from './types'
-import { countActive, filterTodos, matchesStatus, needsAttention, sortTodos } from './lib/todos'
-import { ensureServiceWorker } from './lib/notify'
+import {
+  countActive,
+  filterTodos,
+  matchesQuery,
+  matchesStatus,
+  needsAttention,
+  sortTodos,
+} from './lib/todos'
+import { cacheCurrentAssets, ensureServiceWorker } from './lib/notify'
 import { addDays } from './lib/date'
 import { SelectionBar } from './components/SelectionBar'
 import { DataNotice } from './components/DataNotice'
@@ -83,8 +90,11 @@ export default function App() {
   const done = showingDoneFilter ? [] : visible.filter((t) => t.done)
 
   const counts = useMemo(() => {
+    // 検索中も件数と一覧を一致させる。片方だけ絞ると「すべて 12 / 表示 1 件」になる。
     const inCategory = todos.filter(
-      (t) => filter.categoryId === null || t.categoryId === filter.categoryId,
+      (t) =>
+        (filter.categoryId === null || t.categoryId === filter.categoryId) &&
+        matchesQuery(t, filter.query),
     )
     const count = (status: StatusFilter) =>
       inCategory.filter((t) => matchesStatus(t, status, today)).length
@@ -95,17 +105,18 @@ export default function App() {
       overdue: count('overdue'),
       done: count('done'),
     }
-  }, [todos, filter.categoryId, today])
+  }, [todos, filter.categoryId, filter.query, today])
 
   const categoryCounts = useMemo(() => {
     const result: Record<string, number> = {}
     for (const t of todos) {
       if (t.categoryId === null) continue
       if (!matchesStatus(t, filter.status, today)) continue
+      if (!matchesQuery(t, filter.query)) continue
       result[t.categoryId] = (result[t.categoryId] ?? 0) + 1
     }
     return result
-  }, [todos, filter.status, today])
+  }, [todos, filter.status, filter.query, today])
 
   const categoryUsage = useMemo(() => {
     const result: Record<string, number> = {}
@@ -124,17 +135,26 @@ export default function App() {
    * これが無いとオフラインで開けない。
    */
   useEffect(() => {
-    void ensureServiceWorker()
+    void ensureServiceWorker().then(() => {
+      // 読み込みが落ち着いてから、その資産をキャッシュしてもらう。
+      // これが無いと、初回訪問では何も貯まらず圏外で開けない。
+      setTimeout(() => void cacheCurrentAssets(), 1500)
+    })
   }, [])
 
   /**
    * 通知の「完了」から戻ってきたぶんを片付ける。
    * 開いているタブがあれば postMessage、無ければ URL に載って起動する。
    */
+  // listener からは常に最新のストアを見る。空の依存配列に閉じ込めると、
+  // 開いた後に追加・同期されたタスクを見つけられない。
+  const todoRef = useRef(todo)
+  todoRef.current = todo
+
   useEffect(() => {
     const done = (id: string) => {
-      const target = todo.store.todos.find((t) => t.id === id)
-      if (target !== undefined && !target.done) todo.toggle(id)
+      const target = todoRef.current.store.todos.find((t) => t.id === id)
+      if (target !== undefined && !target.done) todoRef.current.toggle(id)
     }
 
     const params = new URLSearchParams(window.location.search)
@@ -152,11 +172,18 @@ export default function App() {
     }
     navigator.serviceWorker?.addEventListener('message', onMessage)
     return () => navigator.serviceWorker?.removeEventListener('message', onMessage)
-    // 起動時の 1 回だけでよい。todo は毎回変わるので依存に入れない。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const selectedList = useMemo(() => [...selectedIds], [selectedIds])
+  /*
+   * 選択は「いま見えているもの」に必ず閉じ込める。
+   * 絞り込み・検索・同期で一覧が変わっても選択が残っていたため、
+   * 「1 件だけ表示している状態で削除を押したら 3 件消えた」が起きていた。
+   */
+  const visibleIds = useMemo(() => new Set(active.map((t) => t.id)), [active])
+  const selectedList = useMemo(
+    () => [...selectedIds].filter((id) => visibleIds.has(id)),
+    [selectedIds, visibleIds],
+  )
 
   const toggleSelected = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -231,6 +258,7 @@ export default function App() {
       <DataNotice
         syncError={sync.status === 'error' ? sync.error : null}
         signedIn={sync.session !== null}
+        authPending={sync.authPending}
         count={todos.length}
         onOpenAccount={() => setAccountOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -373,7 +401,7 @@ export default function App() {
 
       {selecting && (
         <SelectionBar
-          count={selectedIds.size}
+          count={selectedList.length}
           total={active.length}
           onSelectAll={() => setSelectedIds(new Set(active.map((t) => t.id)))}
           onClear={() => setSelectedIds(new Set())}

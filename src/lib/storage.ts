@@ -28,8 +28,13 @@ export const DEFAULT_SETTINGS: Settings = {
   // 既定は端末の設定に従う。端末ごとに明暗が違っていて自然なため。
   appearance: DEFAULT_APPEARANCE,
   sortMode: 'due',
-  // 完了から 90 日たったタスクは自動で消す。0 にすると消さない。
-  archiveAfterDays: 90,
+  /*
+   * 既定は「消さない」。
+   * ここを 90 にしていたため、更新した端末が初回起動した瞬間に、
+   * 90 日以上前に完了したタスクが同意も予告もなく消え、墓標でサーバーへも
+   * 伝播する状態になっていた。データを消す設定は、明示的に選んだときだけ効かせる。
+   */
+  archiveAfterDays: 0,
   // 一度も触っていない設定は、同期時にサーバー側へ譲る。
   updatedAt: new Date(0).toISOString(),
 }
@@ -46,7 +51,7 @@ const PRIORITIES: Priority[] = ['high', 'normal', 'low']
 const REPEATS: Repeat[] = ['none', 'daily', 'weekly', 'monthly']
 const SORT_MODES: SortMode[] = ['due', 'priority']
 /** 設定で選べる保存期間。ここに無い値は既定に落とす。 */
-const ARCHIVE_DAYS = [0, 30, 90, 365]
+export const ARCHIVE_DAYS = [0, 30, 90, 365]
 
 const asString = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback)
 

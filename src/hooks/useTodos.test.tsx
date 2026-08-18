@@ -53,7 +53,20 @@ describe('useTodos', () => {
     expect(result.current.store.todos).toEqual([])
   })
 
-  it('起動時に、期間を過ぎた完了タスクを掃除する', () => {
+  it('既定では、古い完了タスクを勝手に消さない', () => {
+    const old = todo({
+      id: 'old',
+      done: true,
+      completedAt: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+    localStorage.setItem(KEY, JSON.stringify({ ...emptyStore, todos: [old] }))
+    const { result } = renderHook(() => useTodos())
+    expect(result.current.store.settings.archiveAfterDays).toBe(0)
+    expect(result.current.store.todos.map((t) => t.id)).toEqual(['old'])
+    expect(result.current.store.tombstones).toEqual([])
+  })
+
+  it('設定で選んだときだけ、期間を過ぎた完了タスクを掃除する', () => {
     const old = todo({
       id: 'old',
       done: true,
@@ -62,7 +75,11 @@ describe('useTodos', () => {
     const recent = todo({ id: 'recent', done: true, completedAt: new Date().toISOString() })
     localStorage.setItem(
       KEY,
-      JSON.stringify({ ...emptyStore, todos: [old, recent] }),
+      JSON.stringify({
+        ...emptyStore,
+        todos: [old, recent],
+        settings: { ...emptyStore.settings, archiveAfterDays: 90 },
+      }),
     )
 
     const { result } = renderHook(() => useTodos())

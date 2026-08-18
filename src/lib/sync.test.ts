@@ -316,7 +316,7 @@ describe('toRemoteSettings', () => {
       time_zone: 'Asia/Tokyo',
       theme: 'seventies',
       sort_mode: 'due',
-      archive_after_days: 90,
+      archive_after_days: 0,
       updated_at: '2026-08-09T00:00:00.000Z',
     })
     expect(row).not.toHaveProperty('appearance')

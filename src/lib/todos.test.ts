@@ -781,3 +781,67 @@ describe('まとめて操作', () => {
     expect(storeReducer(store, { type: 'bulk:remove', ids: [], now })).toBe(store)
   })
 })
+
+describe('レビューで見つかった穴（回帰）', () => {
+  it('毎月の繰り返しで、日にちが後戻りしない', () => {
+    // 1/31 → 2/28 に丸めたあと、その 28 日を基準にすると二度と 31 日へ戻らなかった。
+    expect(nextDueDate('2026-01-31', 'monthly', '2026-01-31')).toBe('2026-02-28')
+    expect(nextDueDate('2026-01-31', 'monthly', '2026-02-28')).toBe('2026-03-31')
+    expect(nextDueDate('2026-01-31', 'monthly', '2026-03-31')).toBe('2026-04-30')
+    expect(nextDueDate('2026-01-31', 'monthly', '2026-04-30')).toBe('2026-05-31')
+  })
+
+  it('長く放置しても、次回が過去日にならない', () => {
+    // 2 年以上前の毎日の繰り返し。以前は上限に当たって過去日を返していた。
+    const next = nextDueDate('2024-01-01', 'daily', '2026-08-18')
+    expect(next).not.toBeNull()
+    expect(next! > '2026-08-18').toBe(true)
+  })
+
+  it('まとめて完了にしても、繰り返しの次回が作られる', () => {
+    const a = todo({ id: 'a', dueDate: '2026-08-17', repeat: 'weekly' })
+    const b = todo({ id: 'b', dueDate: '2026-08-17' })
+    const next = storeReducer(
+      { ...emptyStore, todos: [a, b] },
+      {
+        type: 'bulk:toggle',
+        ids: ['a', 'b'],
+        done: true,
+        now: '2026-08-17T10:00:00.000Z',
+        nextIds: ['a2', 'b2'],
+        today: '2026-08-17',
+      },
+    )
+    expect(next.todos.filter((t) => !t.done).map((t) => t.id)).toEqual(['a2'])
+    expect(next.todos.find((t) => t.id === 'a2')?.dueDate).toBe('2026-08-24')
+  })
+
+  it('古い完了タスクの掃除は、既定では起きない', () => {
+    const old = todo({ id: 'old', done: true, completedAt: '2026-01-01T00:00:00.000Z' })
+    const store = { ...emptyStore, todos: [old] }
+    expect(store.settings.archiveAfterDays).toBe(0)
+    expect(archiveOld(store, '2026-08-18T00:00:00.000Z')).toBe(store)
+  })
+
+  it('掃除を 2 回走らせても、墓標は 1 本にとどまる', () => {
+    const old = todo({ id: 'old', done: true, completedAt: '2026-01-01T00:00:00.000Z' })
+    const store = {
+      ...emptyStore,
+      todos: [old],
+      settings: { ...emptyStore.settings, archiveAfterDays: 90 },
+    }
+    const once = archiveOld(store, '2026-08-18T00:00:00.000Z')
+    const twice = archiveOld({ ...once, todos: [old] }, '2026-08-18T00:00:00.000Z')
+    expect(twice.tombstones).toHaveLength(1)
+  })
+
+  it('完了日が壊れているタスクは掃除の対象にしない', () => {
+    const broken = todo({ id: 'broken', done: true, completedAt: 'こわれた日時' })
+    const store = {
+      ...emptyStore,
+      todos: [broken],
+      settings: { ...emptyStore.settings, archiveAfterDays: 30 },
+    }
+    expect(archiveOld(store, '2026-08-18T00:00:00.000Z').todos).toHaveLength(1)
+  })
+})

@@ -1,4 +1,5 @@
 import type { Category, CategoryColor } from '../types'
+import { newId } from './todos'
 
 /** 選べる色。実際の色値は index.css の --cat-<key> / --cat-<key>-soft。 */
 export const CATEGORY_COLORS: { key: CategoryColor; label: string }[] = [
@@ -25,7 +26,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
 export function createCategory(
   name: string,
   color: CategoryColor,
-  id: string = crypto.randomUUID(),
+  id: string = newId(),
 ): Category {
   return { id, name: name.trim(), color }
 }
