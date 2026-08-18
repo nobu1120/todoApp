@@ -86,37 +86,52 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
 
       const now = new Date().toISOString()
 
-      if (result.pushCategories.length > 0) {
-        const { error: e } = await supabase
-          .from('todo_categories')
-          .upsert(result.pushCategories.map((c) => toRemoteCategory(c, userId, now)))
-        if (e) throw e
-      }
-      if (result.pushTodos.length > 0) {
-        const { error: e } = await supabase
-          .from('todo_items')
-          .upsert(result.pushTodos.map((t) => toRemoteTodo(t, userId)))
-        if (e) throw e
-      }
-      if (result.pushDeletedTodoIds.length > 0) {
-        const { error: e } = await supabase
-          .from('todo_items')
-          .update({ deleted_at: now, updated_at: now })
-          .in('id', result.pushDeletedTodoIds)
-        if (e) throw e
-      }
-      if (result.pushDeletedCategoryIds.length > 0) {
-        const { error: e } = await supabase
-          .from('todo_categories')
-          .update({ deleted_at: now, updated_at: now })
-          .in('id', result.pushDeletedCategoryIds)
-        if (e) throw e
+      /*
+       * 送信は「1 つ失敗したら全部やめる」にしない。
+       * 以前はカテゴリの送信で例外を投げていたため、そこで止まって
+       * タスクも設定も一度もサーバーに届かなかった（それに気づけないまま
+       * ログイン済みの表示だけが出ていた）。部分的にでも通しておき、
+       * 失敗は最後にまとめて報せる。
+       */
+      const failures: string[] = []
+      const step = async (label: string, run: () => PromiseLike<{ error: unknown }>) => {
+        const { error: e } = await run()
+        if (e) failures.push(`${label}: ${e instanceof Error ? e.message : String(e)}`)
       }
 
-      const { error: settingsError } = await supabase
-        .from('todo_settings')
-        .upsert(toRemoteSettings(result.store.settings, userId, localTimeZone()))
-      if (settingsError) throw settingsError
+      if (result.pushTodos.length > 0) {
+        await step('タスクの保存', () =>
+          supabase.from('todo_items').upsert(result.pushTodos.map((t) => toRemoteTodo(t, userId))),
+        )
+      }
+      if (result.pushCategories.length > 0) {
+        await step('カテゴリの保存', () =>
+          supabase
+            .from('todo_categories')
+            .upsert(result.pushCategories.map((c) => toRemoteCategory(c, userId, now))),
+        )
+      }
+      if (result.pushDeletedTodoIds.length > 0) {
+        await step('タスクの削除', () =>
+          supabase
+            .from('todo_items')
+            .update({ deleted_at: now, updated_at: now })
+            .in('id', result.pushDeletedTodoIds),
+        )
+      }
+      if (result.pushDeletedCategoryIds.length > 0) {
+        await step('カテゴリの削除', () =>
+          supabase
+            .from('todo_categories')
+            .update({ deleted_at: now, updated_at: now })
+            .in('id', result.pushDeletedCategoryIds),
+        )
+      }
+      await step('設定の保存', () =>
+        supabase.from('todo_settings').upsert(toRemoteSettings(result.store.settings, userId, localTimeZone())),
+      )
+
+      if (failures.length > 0) throw new Error(failures.join(' / '))
 
       // 取り込んだぶんを送り返さないよう、先に水位を上げてから反映する。
       pushedUpTo.current = now

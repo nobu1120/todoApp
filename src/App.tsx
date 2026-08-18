@@ -4,6 +4,7 @@ import { countActive, filterTodos, matchesStatus, needsAttention, sortTodos } fr
 import { ensureServiceWorker } from './lib/notify'
 import { addDays } from './lib/date'
 import { SelectionBar } from './components/SelectionBar'
+import { DataNotice } from './components/DataNotice'
 import { useTodos } from './hooks/useTodos'
 import { useToday } from './hooks/useToday'
 import { useNotifications } from './hooks/useNotifications'
@@ -227,6 +228,14 @@ export default function App() {
         />
       ) : (
       <>
+      <DataNotice
+        syncError={sync.status === 'error' ? sync.error : null}
+        signedIn={sync.session !== null}
+        count={todos.length}
+        onOpenAccount={() => setAccountOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
       <ReminderBanner overdue={attention.overdue} dueToday={attention.today} onJump={jump} />
 
       <TodoForm

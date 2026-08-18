@@ -2453,3 +2453,63 @@ body:has(.selection-bar) {
   color: var(--accent-ink);
   border-color: var(--accent);
 }
+
+/* --- データの警告 --- */
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 13px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  backdrop-filter: var(--blur);
+  font-size: 0.8125rem;
+}
+
+/* 同期の失敗は「見落とされない」ことが要件なので、期限切れと同じ強さで塗る。 */
+.notice--warn {
+  background: var(--alert-bg);
+  color: var(--alert-fg);
+  border-color: var(--alert-bg);
+}
+
+.notice--warn button {
+  background: transparent;
+  color: inherit;
+  border-color: currentColor;
+}
+
+.notice--warn button:hover:not(:disabled) {
+  background: var(--alert-fg);
+  color: var(--alert-bg);
+}
+
+.notice__icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.notice__body {
+  flex: 1;
+  min-width: 12ch;
+  line-height: 1.5;
+}
+
+.notice__detail {
+  display: block;
+  opacity: 0.85;
+  font-size: 0.75rem;
+  /* 失敗の中身は長くなりうる。折り返して全部読めるようにする。 */
+  overflow-wrap: anywhere;
+}
+
+.notice button {
+  flex: none;
+  padding: 7px 12px;
+  min-height: 38px;
+  font-size: 0.8125rem;
+}
