@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Memo } from '../types'
 import { MEMO_MAX, clampMemo, memoLength } from '../lib/storage'
 
@@ -49,7 +49,35 @@ export function MemoPanel({ memo, onChange }: Props) {
     if (el !== null && el.selectionStart === 0 && el.selectionEnd === 0) {
       el.setSelectionRange(el.value.length, el.value.length)
     }
+    keepVisible()
   }
+
+  /*
+   * 打っているところが見えるようにする。
+   *
+   * iOS はキーボードが出てもレイアウトの高さが変わらないので、
+   * 入力欄がキーボードの下に入ったまま気づけない。
+   * visualViewport（実際に見えている範囲）の変化を拾って、そのつど送り直す。
+   */
+  const keepVisible = useCallback(() => {
+    const el = ref.current
+    if (el === null || document.activeElement !== el) return
+    // キーボードが出きるのを待ってから測る。
+    requestAnimationFrame(() => {
+      const view = window.visualViewport
+      const box = el.getBoundingClientRect()
+      const bottom = view === null || view === undefined ? window.innerHeight : view.height
+      if (box.bottom <= bottom - 8) return
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+  }, [])
+
+  useEffect(() => {
+    const view = window.visualViewport
+    if (view === null || view === undefined) return
+    view.addEventListener('resize', keepVisible)
+    return () => view.removeEventListener('resize', keepVisible)
+  }, [keepVisible])
 
   const used = memoLength(text)
   const left = MEMO_MAX - used
@@ -60,7 +88,10 @@ export function MemoPanel({ memo, onChange }: Props) {
         ref={ref}
         className="memo__text"
         value={text}
-        onChange={(e) => setText(clampMemo(e.target.value))}
+        onChange={(e) => {
+          setText(clampMemo(e.target.value))
+          keepVisible()
+        }}
         onFocus={focusEnd}
         placeholder="買い物の走り書き、電話の要点、下書きなど"
         aria-label="メモ"

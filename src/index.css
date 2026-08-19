@@ -3036,16 +3036,25 @@ body:has(.selection-bar) {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  height: 100%;
 }
+/*
+ * 高さは内容に合わせて伸ばさない。
+ * 画面いっぱいに広げると、書いていないときも大きな空白が居座る。
+ * あふれたぶんは中でスクロールさせる（textarea の標準の動き）。
+ */
 .memo__text {
   width: 100%;
-  min-height: 50vh;
-  flex: 1;
+  height: 30vh;
+  min-height: 150px;
+  max-height: 45vh;
+  flex: none;
+  overflow-y: auto;
   resize: vertical;
   line-height: 1.9;
   font-family: inherit;
   font-size: 1rem;
+  /* 打っている行がキーボードの下に隠れたとき、そこまで送る。 */
+  scroll-margin-bottom: 24px;
 }
 .memo__hint {
   margin: 0;
