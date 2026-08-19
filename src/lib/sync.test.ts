@@ -16,6 +16,7 @@ import {
 
 const USER = 'user-1'
 const EMPTY_MEMO = { text: '', updatedAt: new Date(0).toISOString() }
+const EMPTY_SHOP = { items: [], updatedAt: new Date(0).toISOString() }
 
 function todo(overrides: Partial<Todo> & { id: string }): Todo {
   return {
@@ -218,6 +219,8 @@ describe('mergeStore: 設定', () => {
     default_notify_time: '08:15:00',
     memo: null,
     memo_updated_at: null,
+    shopping: null,
+    shopping_updated_at: null,
     time_zone: 'Asia/Tokyo',
     theme: 'washi',
     sort_mode: 'due',
@@ -316,6 +319,7 @@ describe('toRemoteSettings', () => {
       USER,
       'Asia/Tokyo',
       EMPTY_MEMO,
+      EMPTY_SHOP,
     )
     expect(row).toEqual({
       user_id: USER,
@@ -328,6 +332,8 @@ describe('toRemoteSettings', () => {
       updated_at: '2026-08-09T00:00:00.000Z',
       memo: '',
       memo_updated_at: EMPTY_MEMO.updatedAt,
+      shopping: [],
+      shopping_updated_at: EMPTY_SHOP.updatedAt,
     })
     expect(row).not.toHaveProperty('appearance')
   })
@@ -340,7 +346,10 @@ describe('toRemoteSettings', () => {
       theme: 'botanical',
       updatedAt: '2026-08-09T00:00:00.000Z',
     }
-    const back = fromRemoteSettings(toRemoteSettings(mine, USER, 'Asia/Tokyo', EMPTY_MEMO), DEFAULT_SETTINGS)
+    const back = fromRemoteSettings(
+      toRemoteSettings(mine, USER, 'Asia/Tokyo', EMPTY_MEMO, EMPTY_SHOP),
+      DEFAULT_SETTINGS,
+    )
     expect(back).toEqual({ ...mine, appearance: DEFAULT_SETTINGS.appearance })
   })
 })
@@ -440,7 +449,7 @@ describe('サーバー表記の時刻', () => {
     const cat = fromRemoteCategory({ id: 'c', user_id: USER, name: '仕事', color: 'blue', updated_at: PG, deleted_at: null })
     expect(cat.updatedAt).toBe(ISO)
     const s = fromRemoteSettings(
-      { ...toRemoteSettings(DEFAULT_SETTINGS, USER, 'Asia/Tokyo', EMPTY_MEMO), updated_at: PG },
+      { ...toRemoteSettings(DEFAULT_SETTINGS, USER, 'Asia/Tokyo', EMPTY_MEMO, EMPTY_SHOP), updated_at: PG },
       DEFAULT_SETTINGS,
     )
     expect(s.updatedAt).toBe(ISO)
@@ -451,7 +460,7 @@ describe('サーバー表記の時刻', () => {
     const result = mergeStore(local, {
       todos: [],
       categories: [],
-      settings: { ...toRemoteSettings(local.settings, USER, 'Asia/Tokyo', EMPTY_MEMO), updated_at: PG },
+      settings: { ...toRemoteSettings(local.settings, USER, 'Asia/Tokyo', EMPTY_MEMO, EMPTY_SHOP), updated_at: PG },
     })
     expect(result.store.settings.theme).toBe('washi')
   })
@@ -490,7 +499,7 @@ describe('サーバーで消えたカテゴリ', () => {
 
 describe('メモの突き合わせ', () => {
   const withMemo = (text: string, at: string): RemoteSettings => ({
-    ...toRemoteSettings(DEFAULT_SETTINGS, USER, 'Asia/Tokyo', { text, updatedAt: at }),
+    ...toRemoteSettings(DEFAULT_SETTINGS, USER, 'Asia/Tokyo', { text, updatedAt: at }, EMPTY_SHOP),
   })
 
   it('サーバーのほうが新しければ取り込む', () => {
@@ -519,7 +528,7 @@ describe('メモの突き合わせ', () => {
     const remote: RemoteSettings = {
       ...toRemoteSettings(
         { ...DEFAULT_SETTINGS, theme: 'mono', updatedAt: '2026-08-04T00:00:00.000Z' },
-        USER, 'Asia/Tokyo', { text: '古いメモ', updatedAt: '2026-08-02T00:00:00.000Z' },
+        USER, 'Asia/Tokyo', { text: '古いメモ', updatedAt: '2026-08-02T00:00:00.000Z' }, EMPTY_SHOP,
       ),
     }
     const result = mergeStore(local, { todos: [], categories: [], settings: remote })
@@ -531,7 +540,7 @@ describe('メモの突き合わせ', () => {
     const local = { ...store(), memo: { text: 'こちら', updatedAt: '2026-08-01T00:00:00.000Z' } }
     const result = mergeStore(local, {
       todos: [], categories: [],
-      settings: { ...toRemoteSettings(DEFAULT_SETTINGS, USER, 'Asia/Tokyo', EMPTY_MEMO), memo: null, memo_updated_at: null },
+      settings: { ...toRemoteSettings(DEFAULT_SETTINGS, USER, 'Asia/Tokyo', EMPTY_MEMO, EMPTY_SHOP), memo: null, memo_updated_at: null },
     })
     expect(result.store.memo.text).toBe('こちら')
   })

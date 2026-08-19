@@ -153,7 +153,13 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
         )
       }
       await step('設定の保存', () =>
-        supabase.from('todo_settings').upsert(toRemoteSettings(result.store.settings, userId, localTimeZone(), result.store.memo)),
+        supabase.from('todo_settings').upsert(toRemoteSettings(
+            result.store.settings,
+            userId,
+            localTimeZone(),
+            result.store.memo,
+            result.store.shopping,
+          )),
       )
 
       if (failures.length > 0) throw new Error(failures.join(' / '))
@@ -180,7 +186,10 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
     const categories = local.categories.filter((c) => c.updatedAt > since)
     // 設定もここで送る。送らないと、次の全同期でサーバーの値に巻き戻ってしまう。
     // メモは設定と同じ行に入るので、どちらかが変わっていれば送る。
-    const settingsChanged = local.settings.updatedAt > since || local.memo.updatedAt > since
+    const settingsChanged =
+      local.settings.updatedAt > since ||
+      local.memo.updatedAt > since ||
+      local.shopping.updatedAt > since
     if (todos.length === 0 && graves.length === 0 && categories.length === 0 && !settingsChanged)
       return
 
@@ -231,7 +240,7 @@ export function useSync(store: TodoStore, replaceStore: (next: TodoStore) => voi
       }
       if (settingsChanged) {
         await step('設定とメモの保存', () =>
-          supabase.from('todo_settings').upsert(toRemoteSettings(local.settings, userId, localTimeZone(), local.memo)),
+          supabase.from('todo_settings').upsert(toRemoteSettings(local.settings, userId, localTimeZone(), local.memo, local.shopping)),
         )
       }
 

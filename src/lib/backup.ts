@@ -104,5 +104,10 @@ export function mergeBackup(current: TodoStore, incoming: TodoStore, now: string
       incoming.settings.updatedAt > current.settings.updatedAt ? incoming.settings : current.settings,
     // メモも同じ規則。設定とは別に比べる。
     memo: incoming.memo.updatedAt > current.memo.updatedAt ? incoming.memo : current.memo,
+    // 買い物リストも同じ規則。丸ごと入れ替える（行ごとに混ぜると意味が壊れる）。
+    shopping:
+      incoming.shopping.updatedAt > current.shopping.updatedAt
+        ? incoming.shopping
+        : current.shopping,
   }
 }

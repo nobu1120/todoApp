@@ -7,6 +7,7 @@ import type {
   SortMode,
   StatusFilter,
   Subtask,
+  ShoppingItem,
   Todo,
   TodoStore,
   Tombstone,
@@ -21,7 +22,7 @@ import {
   todayISO,
   weekdayOrdinal,
 } from './date'
-import { clampMemo } from './storage'
+import { SHOPPING_MAX, SHOPPING_NAME_MAX, SHOPPING_QTY_MAX, clampMemo } from './storage'
 
 export type NewTodoInput = {
   title: string
@@ -65,6 +66,25 @@ export type TodoPatch = Partial<
     | 'startDate'
   >
 >
+
+/**
+ * 買い物リストの各行に手を入れる。
+ * 中身が 1 つも変わらなければ、更新時刻も進めない
+ * （進めると、何も変えていないのに同期が起きる）。
+ */
+function mapShopping(
+  store: TodoStore,
+  now: string,
+  fn: (item: ShoppingItem) => ShoppingItem,
+): TodoStore {
+  let changed = false
+  const items = store.shopping.items.map((item) => {
+    const next = fn(item)
+    if (next !== item) changed = true
+    return next
+  })
+  return changed ? { ...store, shopping: { items, updatedAt: now } } : store
+}
 
 /** いまの一番上の order。空なら 0。 */
 function topOrder(todos: Todo[]): number {
@@ -243,6 +263,11 @@ export type Action =
       before: string | null
       now: string
     }
+  | { type: 'shopping:add'; name: string; id: string; now: string }
+  | { type: 'shopping:toggle'; id: string; now: string }
+  | { type: 'shopping:quantity'; id: string; delta: number; now: string }
+  | { type: 'shopping:remove'; id: string; now: string }
+  | { type: 'shopping:clearDone'; now: string }
   | { type: 'memo:update'; text: string; now: string }
   | { type: 'settings:update'; patch: Partial<Settings>; now: string }
 
@@ -520,6 +545,47 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
 
       if (next === moving.order) return store
       return mapTodo(store, action.id, (todo) => ({ ...todo, order: next, updatedAt: action.now }))
+    }
+
+    case 'shopping:add': {
+      const name = [...action.name.trim()].slice(0, SHOPPING_NAME_MAX).join('')
+      // 空は足さない。上限を超えたら黙って捨てず、何も起きない（画面側で報せる）。
+      if (name === '' || store.shopping.items.length >= SHOPPING_MAX) return store
+      return {
+        ...store,
+        shopping: {
+          // 末尾に足す。書いた順に売り場を回るので、並びを変えない。
+          items: [...store.shopping.items, { id: action.id, name, quantity: 1, done: false }],
+          updatedAt: action.now,
+        },
+      }
+    }
+
+    case 'shopping:toggle':
+      return mapShopping(store, action.now, (item) =>
+        item.id === action.id ? { ...item, done: !item.done } : item,
+      )
+
+    case 'shopping:quantity':
+      return mapShopping(store, action.now, (item) => {
+        if (item.id !== action.id) return item
+        // 1 より下げない。0 個は「消す」の意味になってしまう。
+        const next = Math.min(Math.max(item.quantity + action.delta, 1), SHOPPING_QTY_MAX)
+        return next === item.quantity ? item : { ...item, quantity: next }
+      })
+
+    case 'shopping:remove': {
+      const items = store.shopping.items.filter((i) => i.id !== action.id)
+      return items.length === store.shopping.items.length
+        ? store
+        : { ...store, shopping: { items, updatedAt: action.now } }
+    }
+
+    case 'shopping:clearDone': {
+      const items = store.shopping.items.filter((i) => !i.done)
+      return items.length === store.shopping.items.length
+        ? store
+        : { ...store, shopping: { items, updatedAt: action.now } }
     }
 
     case 'memo:update': {

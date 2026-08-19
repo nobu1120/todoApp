@@ -2997,39 +2997,107 @@ body:has(.selection-bar) {
 }
 
 /*
- * メモのボタン。右下に固定する。
+ * 右下の入り口。押すと中身（メモ・買い物）が上へ開く。
  * 「取り消し」のトーストは中央、選択バーは全幅なので、ここだけが空いている。
- * トーストが伸びて重ならないよう、トースト側の幅を詰めてある。
+ * トースト側の幅はこのボタンを避けて詰めてある。
  */
-.memo-button {
+.fab {
   position: fixed;
   right: 16px;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 55;
-  width: 52px;
-  height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+/* 開いている間は、外を触れば閉じる。 */
+.fab__scrim {
+  position: fixed;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: var(--scrim, rgb(0 0 0 / 0.28));
+  z-index: -1;
+}
+
+.fab__main,
+.fab__icon {
   display: grid;
   place-items: center;
-  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 4px 14px rgb(0 0 0 / 0.14);
 }
-.memo-button:active {
-  transform: scale(0.94);
+.fab__main {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+}
+.fab__main:active { transform: scale(0.94); }
+
+.fab__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  /* 開いたときだけ現れるので、押し間違えないよう的を大きめに取る。 */
+  min-height: 46px;
+}
+.fab__icon {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex: none;
+}
+/* 名前も出す。アイコンだけだと、どちらが買い物か覚えるまで分からない。 */
+.fab__label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
 }
 
-/* 中身があることを示す小さな印。 */
-.memo-button__dot {
+/* 中身があることを示す印。 */
+.fab__dot {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 9px;
+  right: 9px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--accent);
+}
+.fab__count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab__main:active { transform: none; }
 }
 
 .memo {
@@ -3183,4 +3251,105 @@ body:has(.selection-bar) {
   color: var(--alert-fg);
   background: var(--alert-bg);
   font-weight: 700;
+}
+
+/* --- 買い物リスト --- */
+
+.shop { display: flex; flex-direction: column; gap: 10px; }
+
+.shop__form { display: flex; gap: 8px; }
+.shop__form input { flex: 1; min-width: 0; }
+.shop__form button {
+  flex: none;
+  width: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.shop__empty {
+  margin: 0;
+  padding: 20px 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.shop__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap, 6px);
+}
+
+.shop__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 4px;
+  border-radius: var(--row-radius, var(--radius));
+  background: var(--row-bg, var(--surface));
+  border-bottom: var(--list-rule, 1px solid var(--row-line, var(--border)));
+}
+/* 買ったものは弱めるだけで、並びは動かさない（売り場を回る順に書くため）。 */
+.shop__item.is-done .shop__name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.shop__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+.shop__check input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  accent-color: var(--accent);
+}
+.shop__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shop__qty {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.shop__qty button {
+  width: 34px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+.shop__qty button:disabled { opacity: 0.35; }
+.shop__qty span {
+  min-width: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.shop__remove { flex: none; }
+
+.shop__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }

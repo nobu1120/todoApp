@@ -72,6 +72,14 @@ export function useTodos() {
       /** 手で並べ替える。before の直前に入れる（null は末尾）。 */
       reorder: (id: string, before: string | null) =>
         dispatch({ type: 'reorder', id, before, now: now() }),
+      /** 買い物リスト。常に 1 つ。 */
+      addShopping: (name: string) =>
+        dispatch({ type: 'shopping:add', name, id: newId(), now: now() }),
+      toggleShopping: (id: string) => dispatch({ type: 'shopping:toggle', id, now: now() }),
+      shoppingQuantity: (id: string, delta: number) =>
+        dispatch({ type: 'shopping:quantity', id, delta, now: now() }),
+      removeShopping: (id: string) => dispatch({ type: 'shopping:remove', id, now: now() }),
+      clearBought: () => dispatch({ type: 'shopping:clearDone', now: now() }),
       /** どこにも属さない 1 枚のメモ。 */
       updateMemo: (text: string) => dispatch({ type: 'memo:update', text, now: now() }),
       update: (id: string, patch: TodoPatch) =>

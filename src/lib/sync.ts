@@ -1,4 +1,41 @@
-import type { Category, Memo, Repeat, Settings, Todo, TodoStore, Tombstone } from '../types'
+import type {
+  Category,
+  Memo,
+  Repeat,
+  Settings,
+  Shopping,
+  ShoppingItem,
+  Todo,
+  TodoStore,
+  Tombstone,
+} from '../types'
+import { SHOPPING_MAX, SHOPPING_NAME_MAX, SHOPPING_QTY_MAX } from './storage'
+
+/**
+ * サーバーから来た買い物リストを読む。
+ * jsonb なので何でも入りうる。1 行ずつ確かめて、読めないものは捨てる。
+ */
+function parseShoppingItems(value: unknown): ShoppingItem[] {
+  if (!Array.isArray(value)) return []
+  const out: ShoppingItem[] = []
+  for (const raw of value) {
+    if (typeof raw !== 'object' || raw === null) continue
+    const row = raw as Record<string, unknown>
+    if (typeof row.id !== 'string' || row.id === '') continue
+    if (typeof row.name !== 'string' || row.name.trim() === '') continue
+    out.push({
+      id: row.id,
+      name: [...row.name.trim()].slice(0, SHOPPING_NAME_MAX).join(''),
+      quantity:
+        typeof row.quantity === 'number' && Number.isFinite(row.quantity)
+          ? Math.min(Math.max(Math.round(row.quantity), 1), SHOPPING_QTY_MAX)
+          : 1,
+      done: row.done === true,
+    })
+    if (out.length >= SHOPPING_MAX) break
+  }
+  return out
+}
 
 /** サーバーから受け取ってよい繰り返しの値。知らない値は 'none' に落とす。 */
 const REMOTE_REPEATS: Repeat[] = [
@@ -73,6 +110,9 @@ export type RemoteSettings = {
    */
   memo: string | null
   memo_updated_at: string | null
+  /** 買い物リスト。メモと同じ理由で、突き合わせは別に行う。 */
+  shopping: unknown
+  shopping_updated_at: string | null
 }
 
 /** 'HH:MM:SS' で返ってくることがあるので 'HH:MM' に詰める。 */
@@ -139,6 +179,7 @@ export function toRemoteSettings(
   userId: string,
   timeZone: string,
   memo: Memo,
+  shopping: Shopping,
 ): RemoteSettings {
   return {
     user_id: userId,
@@ -153,6 +194,8 @@ export function toRemoteSettings(
     updated_at: settings.updatedAt,
     memo: memo.text,
     memo_updated_at: memo.updatedAt,
+    shopping: shopping.items,
+    shopping_updated_at: shopping.updatedAt,
   }
 }
 
@@ -372,6 +415,17 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
       ? { text: remote.settings?.memo ?? '', updatedAt: remoteMemoAt }
       : local.memo
 
+  // ---- 買い物リスト ----
+  // メモと同じく、設定とは別に比べる。
+  const remoteShopAt =
+    remote.settings === null || remote.settings.shopping_updated_at === null
+      ? null
+      : atTime(remote.settings.shopping_updated_at)
+  const shopping: Shopping =
+    remoteShopAt !== null && remoteShopAt > local.shopping.updatedAt
+      ? { items: parseShoppingItems(remote.settings?.shopping), updatedAt: remoteShopAt }
+      : local.shopping
+
   // 消えたカテゴリを指したままのタスクを未分類に落とす。
   const categoryIds = new Set(mergedCategories.keys())
   const todos = [...mergedTodos.values()].map((todo) =>
@@ -388,6 +442,7 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
       settings,
       tombstones: local.tombstones,
       memo,
+      shopping,
     },
     pushTodos,
     pushCategories,

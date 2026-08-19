@@ -90,6 +90,9 @@ create table if not exists public.todo_settings (
    */
   memo                 text not null default '',
   memo_updated_at      timestamptz,
+  -- 買い物リスト。メモと同じ理由で、更新時刻を分けて持つ。
+  shopping             jsonb not null default '[]'::jsonb,
+  shopping_updated_at  timestamptz,
   constraint todo_settings_sort_mode_check check (sort_mode in ('due', 'priority', 'manual')),
   constraint todo_settings_archive_check check (archive_after_days in (0, 30, 90, 365))
 );

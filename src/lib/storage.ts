@@ -1,5 +1,7 @@
 import type {
   Memo,
+  Shopping,
+  ShoppingItem,
   Category,
   CategoryColor,
   Priority,
@@ -16,7 +18,13 @@ import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 export const STORAGE_KEY = 'todoApp.store'
-export const CURRENT_VERSION = 9
+export const CURRENT_VERSION = 10
+
+/** 買い物リストの上限。1 回の買い物で扱う量を超えたら、それは別の道具の仕事。 */
+export const SHOPPING_MAX = 60
+export const SHOPPING_NAME_MAX = 40
+/** 個数の上限。ここを超える買い方はしない。 */
+export const SHOPPING_QTY_MAX = 99
 
 /*
  * メモの上限。
@@ -68,6 +76,7 @@ export const emptyStore: TodoStore = {
   settings: DEFAULT_SETTINGS,
   tombstones: [],
   memo: { text: '', updatedAt: new Date(0).toISOString() },
+  shopping: { items: [], updatedAt: new Date(0).toISOString() },
 }
 
 const PRIORITIES: Priority[] = ['high', 'normal', 'low']
@@ -241,7 +250,40 @@ export function migrate(value: unknown, now: number = Date.now()): TodoStore {
           .filter((t): t is Tombstone => t !== null)
       : [],
     memo: parseMemo(raw.memo),
+    shopping: parseShopping(raw.shopping),
   }
+}
+
+/** 名前と個数を、扱える形に丸める。読めないものは捨てる。 */
+function parseShoppingItem(value: unknown): ShoppingItem | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Record<string, unknown>
+  if (typeof raw.id !== 'string' || raw.id === '') return null
+  if (typeof raw.name !== 'string' || raw.name.trim() === '') return null
+  const quantity =
+    typeof raw.quantity === 'number' && Number.isFinite(raw.quantity)
+      ? Math.min(Math.max(Math.round(raw.quantity), 1), SHOPPING_QTY_MAX)
+      : 1
+  return {
+    id: raw.id,
+    name: [...raw.name.trim()].slice(0, SHOPPING_NAME_MAX).join(''),
+    quantity,
+    done: raw.done === true,
+  }
+}
+
+/** v10 で追加。古いデータには無いので空で始める。 */
+function parseShopping(value: unknown): Shopping {
+  const empty: Shopping = { items: [], updatedAt: new Date(0).toISOString() }
+  if (typeof value !== 'object' || value === null) return empty
+  const raw = value as Record<string, unknown>
+  const items = Array.isArray(raw.items)
+    ? raw.items
+        .map(parseShoppingItem)
+        .filter((i): i is ShoppingItem => i !== null)
+        .slice(0, SHOPPING_MAX)
+    : []
+  return { items, updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : empty.updatedAt }
 }
 
 /** v8 で追加。古いデータには無いので空で始める。 */

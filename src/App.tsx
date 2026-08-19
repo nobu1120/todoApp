@@ -35,6 +35,7 @@ import { useBackupReminder } from './hooks/useBackupReminder'
 import { CompletionMap } from './components/CompletionMap'
 import { MemoPanel } from './components/MemoPanel'
 import { ActionSheet } from './components/ActionSheet'
+import { ShoppingPanel } from './components/ShoppingPanel'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -57,10 +58,13 @@ export default function App() {
    * 開いているドロワーは 1 枚だけ。独立した真偽値 2 つにしていると
    * 両方 true になりえて、履歴（pushState）が二重に積まれる。
    */
-  const [drawer, setDrawer] = useState<'settings' | 'account' | 'memo' | null>(null)
+  const [drawer, setDrawer] = useState<'settings' | 'account' | 'memo' | 'shopping' | null>(null)
+  /* 右下の入り口が開いているか。 */
+  const [fabOpen, setFabOpen] = useState(false)
   const settingsOpen = drawer === 'settings'
   const accountOpen = drawer === 'account'
   const memoOpen = drawer === 'memo'
+  const shoppingOpen = drawer === 'shopping'
   const setSettingsOpen = (open: boolean) => setDrawer(open ? 'settings' : null)
   const setAccountOpen = (open: boolean) => setDrawer(open ? 'account' : null)
   const setMemoOpen = (open: boolean) => setDrawer(open ? 'memo' : null)
@@ -469,6 +473,19 @@ export default function App() {
         )}
       </Drawer>
 
+      <Drawer open={shoppingOpen} title="買い物" onClose={() => setDrawer(null)}>
+        {shoppingOpen && (
+          <ShoppingPanel
+            shopping={todo.store.shopping}
+            onAdd={todo.addShopping}
+            onToggle={todo.toggleShopping}
+            onQuantity={todo.shoppingQuantity}
+            onRemove={todo.removeShopping}
+            onClearDone={todo.clearBought}
+          />
+        )}
+      </Drawer>
+
       <Drawer open={memoOpen} title="メモ" onClose={() => setMemoOpen(false)}>
         {memoOpen && <MemoPanel memo={todo.store.memo} onChange={todo.updateMemo} />}
       </Drawer>
@@ -534,19 +551,66 @@ export default function App() {
       )}
 
       {/*
-        * メモは右下から。選択モード中は下部バーと重なるので出さない。
-        * ドロワーを開いている間も、上に浮いたまま文字に重なるので出さない。
+        * 右下の入り口。押すと中身（メモ・買い物）が開く。
+        * 選択モード中は下部バーと、ドロワーを開いている間は文字と重なるので出さない。
         */}
       {!selecting && drawer === null && openId === null && (
-        <button
-          type="button"
-          className="memo-button"
-          onClick={() => setMemoOpen(true)}
-          aria-label="メモを開く"
-        >
-          <Icon name="note" />
-          {todo.store.memo.text !== '' && <span className="memo-button__dot" aria-hidden="true" />}
-        </button>
+        <div className={`fab${fabOpen ? ' is-open' : ''}`}>
+          {fabOpen && (
+            <>
+              <button
+                type="button"
+                className="fab__scrim"
+                onClick={() => setFabOpen(false)}
+                aria-label="閉じる"
+                tabIndex={-1}
+              />
+              <button
+                type="button"
+                className="fab__item"
+                onClick={() => {
+                  setDrawer('shopping')
+                  setFabOpen(false)
+                }}
+              >
+                <span className="fab__label">買い物</span>
+                <span className="fab__icon">
+                  <Icon name="basket" />
+                  {todo.store.shopping.items.length > 0 && (
+                    <span className="fab__count">{todo.store.shopping.items.length}</span>
+                  )}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="fab__item"
+                onClick={() => {
+                  setDrawer('memo')
+                  setFabOpen(false)
+                }}
+              >
+                <span className="fab__label">メモ</span>
+                <span className="fab__icon">
+                  <Icon name="note" />
+                  {todo.store.memo.text !== '' && <span className="fab__dot" aria-hidden="true" />}
+                </span>
+              </button>
+            </>
+          )}
+
+          <button
+            type="button"
+            className="fab__main"
+            onClick={() => setFabOpen((v) => !v)}
+            aria-expanded={fabOpen}
+            aria-label={fabOpen ? '閉じる' : 'メモと買い物'}
+          >
+            <Icon name={fabOpen ? 'close' : 'menu'} />
+            {!fabOpen && (todo.store.memo.text !== '' || todo.store.shopping.items.length > 0) && (
+              <span className="fab__dot" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       )}
 
       {heldTodo !== null && (

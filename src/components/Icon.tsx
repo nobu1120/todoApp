@@ -11,7 +11,10 @@ export type IconName =
   | 'check-list'
   | 'chevron'
   | 'close'
+  | 'basket'
   | 'download'
+  | 'menu'
+  | 'minus'
   | 'note'
   | 'plus'
   | 'repeat'
@@ -28,7 +31,10 @@ const PATHS: Record<IconName, string> = {
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
   check: 'm20 6-11 11-5-5',
   'check-list': 'm3 7 2 2 3-3 M3 15l2 2 3-3 M12 8h9 M12 16h9',
+  basket: 'M5 11h14l-1.4 8.2a2 2 0 0 1-2 1.8H8.4a2 2 0 0 1-2-1.8L5 11Z M8 11 10 4 M16 11 14 4 M9 15v2 M15 15v2',
   download: 'M12 3v12 M7 11l5 5 5-5 M4 19h16',
+  menu: 'M4 6h16 M4 12h16 M4 18h16',
+  minus: 'M5 12h14',
   chevron: 'm6 9 6 6 6-6',
   close: 'M18 6 6 18M6 6l12 12',
   note: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5',

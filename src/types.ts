@@ -134,13 +134,33 @@ export type Memo = {
   updatedAt: string
 }
 
+/** 買い物リストの 1 行。 */
+export type ShoppingItem = {
+  id: string
+  name: string
+  /** 1 以上。0 は「消す」の意味になるので持たせない。 */
+  quantity: number
+  /** 買ったか。 */
+  done: boolean
+}
+
+/**
+ * 買い物リスト。メモと同じく常に 1 つ。
+ * その日の買い物のための走り書きなので、名前を付けて複数持つ必要がない。
+ */
+export type Shopping = {
+  items: ShoppingItem[]
+  updatedAt: string
+}
+
 export type TodoStore = {
-  schemaVersion: 9
+  schemaVersion: 10
   todos: Todo[]
   categories: Category[]
   settings: Settings
   tombstones: Tombstone[]
   memo: Memo
+  shopping: Shopping
 }
 
 export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'done'
