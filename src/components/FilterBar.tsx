@@ -9,6 +9,19 @@ const STATUSES: { value: StatusFilter; label: string }[] = [
   { value: 'done', label: '完了' },
 ]
 
+const SORT_LABEL: Record<SortMode, string> = {
+  due: '期限順',
+  priority: '優先度順',
+  manual: '手動',
+}
+
+/* 長押しで並べ替えると「手動」になるので、そこからも戻れるようにする。 */
+const NEXT_SORT: Record<SortMode, SortMode> = {
+  due: 'priority',
+  priority: 'manual',
+  manual: 'due',
+}
+
 type Props = {
   filter: Filter
   counts: Record<StatusFilter, number>
@@ -90,11 +103,11 @@ export function FilterBar({
         <button
           type="button"
           className="filter filter--sort"
-          onClick={() => onChangeSort(sortMode === 'due' ? 'priority' : 'due')}
-          aria-label={`並び順: ${sortMode === 'due' ? '期限順' : '優先度順'}（押すと切り替え）`}
+          onClick={() => onChangeSort(NEXT_SORT[sortMode])}
+          aria-label={`並び順: ${SORT_LABEL[sortMode]}（押すと切り替え）`}
         >
           <Icon name="sort" />
-          {sortMode === 'due' ? '期限順' : '優先度順'}
+          {SORT_LABEL[sortMode]}
         </button>
       </nav>
 

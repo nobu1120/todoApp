@@ -34,6 +34,7 @@ import { sharedTask } from './lib/shared'
 import { useBackupReminder } from './hooks/useBackupReminder'
 import { CompletionMap } from './components/CompletionMap'
 import { MemoPanel } from './components/MemoPanel'
+import { ActionSheet } from './components/ActionSheet'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -243,6 +244,22 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [justShared])
 
+  /* 長押しして離したタスク。操作の一覧を出す。 */
+  const [heldId, setHeldId] = useState<string | null>(null)
+  const heldTodo = useMemo(() => todos.find((t) => t.id === heldId) ?? null, [todos, heldId])
+
+  /*
+   * 並べ替えは「手動」でしか意味を持たない。
+   * 期限順のまま動かしても次の描画で元に戻るので、動かした時点で切り替える。
+   */
+  const reorder = useCallback(
+    (id: string, before: string | null) => {
+      if (settings.sortMode !== 'manual') todo.updateSettings({ sortMode: 'manual' })
+      todo.reorder(id, before)
+    },
+    [settings.sortMode, todo],
+  )
+
   const localOnly = useLocalOnlyNotice(todos.length)
   const backup = useBackupReminder(todos.length)
 
@@ -387,6 +404,8 @@ export default function App() {
           onOpen={setOpenId}
           onRemove={todo.remove}
           onSelect={toggleSelected}
+          onReorder={reorder}
+          onHold={setHeldId}
         />
       )}
 
@@ -528,6 +547,17 @@ export default function App() {
           <Icon name="note" />
           {todo.store.memo.text !== '' && <span className="memo-button__dot" aria-hidden="true" />}
         </button>
+      )}
+
+      {heldTodo !== null && (
+        <ActionSheet
+          title={heldTodo.title}
+          onRemove={() => {
+            todo.remove(heldTodo.id)
+            setHeldId(null)
+          }}
+          onClose={() => setHeldId(null)}
+        />
       )}
 
       {justShared !== null && (

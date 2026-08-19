@@ -17,7 +17,7 @@ export type Repeat =
   | 'monthly-weekday'
 
 /** 一覧の並び順。 */
-export type SortMode = 'due' | 'priority'
+export type SortMode = 'due' | 'priority' | 'manual'
 
 export type Subtask = {
   id: string
@@ -68,6 +68,13 @@ export type Todo = {
   completedAt: string | null
   /** 絵文字 1 文字。'' はアイコンなし。 */
   icon: string
+  /*
+   * 手で並べ替えたときの位置。小さいほど上。
+   * 間に落とせるよう小数を許す（両隣の中間を取る）。
+   * 並びを変えたタスクだけ書き換えるので、絞り込み中に動かしても
+   * 表に出ていないタスクの位置は壊れない。
+   */
+  order: number
   /** 排他。null は未分類。 */
   categoryId: string | null
   notes: string
@@ -128,7 +135,7 @@ export type Memo = {
 }
 
 export type TodoStore = {
-  schemaVersion: 8
+  schemaVersion: 9
   todos: Todo[]
   categories: Category[]
   settings: Settings

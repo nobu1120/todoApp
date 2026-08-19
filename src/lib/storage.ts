@@ -16,7 +16,7 @@ import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 export const STORAGE_KEY = 'todoApp.store'
-export const CURRENT_VERSION = 8
+export const CURRENT_VERSION = 9
 
 /*
  * メモの上限。
@@ -79,7 +79,7 @@ const REPEATS: Repeat[] = [
   'monthly',
   'monthly-weekday',
 ]
-const SORT_MODES: SortMode[] = ['due', 'priority']
+const SORT_MODES: SortMode[] = ['due', 'priority', 'manual']
 /** 設定で選べる保存期間。ここに無い値は既定に落とす。 */
 export const ARCHIVE_DAYS = [0, 30, 90, 365]
 
@@ -147,6 +147,8 @@ function parseTodo(value: unknown): Todo | null {
     startDate: typeof raw.startDate === 'string' && ISO_DATE_RE.test(raw.startDate)
       ? raw.startDate
       : null,
+    // v9 で追加。古いデータには無いので 0（作成順のまま並ぶ）。
+    order: typeof raw.order === 'number' && Number.isFinite(raw.order) ? raw.order : 0,
   }
 }
 

@@ -41,6 +41,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     repeat: 'none',
     spawnedFrom: null,
     startDate: null,
+    order: 0,
     ...overrides,
   }
 }
@@ -115,6 +116,7 @@ describe('createTodo', () => {
       repeat: 'none',
       spawnedFrom: null,
       startDate: null,
+      order: 0,
     })
   })
 
@@ -960,7 +962,7 @@ describe('往復中の削除', () => {
     id, title: id, done: false, dueDate: null, dueTime: null,
     createdAt: updatedAt, updatedAt, completedAt: null, icon: '',
     categoryId: null, notes: '', subtasks: [], notifiedAt: null,
-    priority: 'normal', repeat: 'none', spawnedFrom: null, startDate: null,
+    priority: 'normal', repeat: 'none', spawnedFrom: null, startDate: null, order: 0,
   })
 
   it('往復の間に消したものが復活しない', () => {
@@ -1018,7 +1020,7 @@ describe('元に戻す', () => {
       createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z',
       completedAt: null, icon: '', categoryId: null, notes: '', subtasks: [],
       notifiedAt: null, priority: 'normal', repeat: 'none', spawnedFrom: null,
-      startDate: null,
+      startDate: null, order: 0,
     }
     const after = storeReducer(
       { ...emptyStore, categories: [], todos: [], tombstones: [{ id: 'a', kind: 'todo' as const, deletedAt: '2026-08-02T00:00:00.000Z' }] },
@@ -1143,4 +1145,85 @@ describe('着手日', () => {
   })
 
 
+})
+
+describe('手で並べ替える', () => {
+  const T = '2026-08-18T00:00:00.000Z'
+  const t = (id: string, order: number, over: Partial<Todo> = {}) =>
+    todo({ id, order, ...over })
+
+  describe('sortTodos の manual', () => {
+    it('order の小さい順に並ぶ', () => {
+      const list = [t('c', 3), t('a', 1), t('b', 2)]
+      expect(sortTodos(list, 'manual').map((x) => x.id)).toEqual(['a', 'b', 'c'])
+    })
+
+    it('完了したものは並びに関わらず末尾', () => {
+      const list = [t('done', 0, { done: true }), t('a', 5)]
+      expect(sortTodos(list, 'manual').map((x) => x.id)).toEqual(['a', 'done'])
+    })
+
+    it('order が同じなら新しい順（既存の規則と揃える）', () => {
+      const list = [
+        t('old', 1, { createdAt: '2026-08-01T00:00:00.000Z' }),
+        t('new', 1, { createdAt: '2026-08-05T00:00:00.000Z' }),
+      ]
+      expect(sortTodos(list, 'manual').map((x) => x.id)).toEqual(['new', 'old'])
+    })
+  })
+
+  describe('reorder', () => {
+    const store = (todos: Todo[]) => ({ ...emptyStore, categories: [], todos })
+
+    it('間に落とすと、その 2 つの中間の order になる', () => {
+      const after = storeReducer(store([t('a', 1), t('b', 2), t('c', 3)]), {
+        type: 'reorder', id: 'c', before: 'b', now: T,
+      })
+      const c = after.todos.find((x) => x.id === 'c')!
+      expect(c.order).toBeGreaterThan(1)
+      expect(c.order).toBeLessThan(2)
+      expect(sortTodos(after.todos, 'manual').map((x) => x.id)).toEqual(['a', 'c', 'b'])
+    })
+
+    it('先頭に落とすと一番小さい order になる', () => {
+      const after = storeReducer(store([t('a', 1), t('b', 2)]), {
+        type: 'reorder', id: 'b', before: 'a', now: T,
+      })
+      expect(after.todos.find((x) => x.id === 'b')!.order).toBeLessThan(1)
+    })
+
+    it('末尾に落とす（before が null）と一番大きい order になる', () => {
+      const after = storeReducer(store([t('a', 1), t('b', 2)]), {
+        type: 'reorder', id: 'a', before: null, now: T,
+      })
+      expect(after.todos.find((x) => x.id === 'a')!.order).toBeGreaterThan(2)
+      expect(sortTodos(after.todos, 'manual').map((x) => x.id)).toEqual(['b', 'a'])
+    })
+
+    it('動かしたものだけ更新時刻が進む（同期に乗る）', () => {
+      const after = storeReducer(store([t('a', 1), t('b', 2)]), {
+        type: 'reorder', id: 'b', before: 'a', now: T,
+      })
+      expect(after.todos.find((x) => x.id === 'b')!.updatedAt).toBe(T)
+      expect(after.todos.find((x) => x.id === 'a')!.updatedAt).not.toBe(T)
+    })
+
+    it('自分の前に落としても何も起きない', () => {
+      const before = store([t('a', 1), t('b', 2)])
+      expect(storeReducer(before, { type: 'reorder', id: 'a', before: 'a', now: T })).toBe(before)
+    })
+
+    it('知らない id は無視する', () => {
+      const before = store([t('a', 1)])
+      expect(storeReducer(before, { type: 'reorder', id: 'zzz', before: null, now: T })).toBe(before)
+    })
+  })
+
+  it('新しいタスクは一番上に来る（追加したものが見えないと困る）', () => {
+    const after = storeReducer(
+      { ...emptyStore, categories: [], todos: [t('a', 1), t('b', 2)] },
+      { type: 'add', todo: createTodo({ title: '新規' }, T, 'new'), now: T },
+    )
+    expect(sortTodos(after.todos, 'manual')[0].id).toBe('new')
+  })
 })

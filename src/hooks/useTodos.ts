@@ -69,6 +69,9 @@ export function useTodos() {
         dispatch({ type: 'add', todo, now: now() })
         return todo.id
       },
+      /** 手で並べ替える。before の直前に入れる（null は末尾）。 */
+      reorder: (id: string, before: string | null) =>
+        dispatch({ type: 'reorder', id, before, now: now() }),
       /** どこにも属さない 1 枚のメモ。 */
       updateMemo: (text: string) => dispatch({ type: 'memo:update', text, now: now() }),
       update: (id: string, patch: TodoPatch) =>

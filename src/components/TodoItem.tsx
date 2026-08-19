@@ -11,6 +11,11 @@ type Props = {
   today: string
   selecting?: boolean
   selected?: boolean
+  /** 長押しでつかんでいる行。 */
+  held?: boolean
+  /** この行の直前に落とす。区切り線を出す。 */
+  dropBefore?: boolean
+  onPressStart?: (id: string, clientY: number) => void
   onToggle: (id: string) => void
   onOpen: (id: string) => void
   onRemove: (id: string) => void
@@ -28,6 +33,9 @@ export const TodoItem = memo(function TodoItem({
   today,
   selecting = false,
   selected = false,
+  held = false,
+  dropBefore = false,
+  onPressStart,
   onToggle,
   onOpen,
   onRemove,
@@ -50,9 +58,13 @@ export const TodoItem = memo(function TodoItem({
         'todo-item' +
         (todo.done ? ' todo-item--done' : '') +
         (waiting ? ' todo-item--waiting' : '') +
+        (held ? ' todo-item--held' : '') +
+        (dropBefore ? ' todo-item--drop-before' : '') +
         (selecting && selected ? ' is-selected' : '')
       }
       data-priority={todo.priority}
+      data-todo-id={todo.id}
+      onTouchStart={(e) => onPressStart?.(todo.id, e.touches[0]?.clientY ?? 0)}
     >
       <label className="todo-item__check">
         <input

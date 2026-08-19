@@ -28,6 +28,7 @@ export type RemoteTodo = {
   done: boolean
   due_date: string | null
   start_date: string | null
+  sort_order: number | null
   due_time: string | null
   icon: string
   category_id: string | null
@@ -104,6 +105,7 @@ export function toRemoteTodo(todo: Todo, userId: string): RemoteTodo {
     done: todo.done,
     due_date: todo.dueDate,
     start_date: todo.startDate,
+    sort_order: todo.order,
     due_time: todo.dueTime,
     icon: todo.icon,
     category_id: todo.categoryId,
@@ -168,7 +170,10 @@ export function fromRemoteSettings(row: RemoteSettings, fallback: Settings): Set
     theme: isThemeId(row.theme) ? row.theme : fallback.theme,
     // 明暗は同期しない。この端末の指定をそのまま残す。
     appearance: fallback.appearance,
-    sortMode: row.sort_mode === 'priority' || row.sort_mode === 'due' ? row.sort_mode : fallback.sortMode,
+    sortMode:
+      row.sort_mode === 'priority' || row.sort_mode === 'due' || row.sort_mode === 'manual'
+        ? row.sort_mode
+        : fallback.sortMode,
     // 保存期間はデータを消す設定なので、保存時と同じ選択肢だけを受け入れる。
     // ここを緩くすると、サーバー経由で「1 日で消す」のような値が入りうる。
     archiveAfterDays: ARCHIVE_DAYS.includes(row.archive_after_days as number)
@@ -194,6 +199,7 @@ export function fromRemoteTodo(row: RemoteTodo): Todo {
     done: row.done,
     dueDate: row.due_date,
     startDate: row.start_date,
+    order: typeof row.sort_order === 'number' && Number.isFinite(row.sort_order) ? row.sort_order : 0,
     dueTime: shortTime(row.due_time),
     createdAt: atTime(row.created_at),
     updatedAt: atTime(row.updated_at),

@@ -30,6 +30,7 @@ export type NewTodoInput = {
   icon?: string
   categoryId?: string | null
   startDate?: string | null
+  order?: number
   priority?: Priority
   repeat?: Repeat
   /** 共有シートから来た参照元 URL など。 */
@@ -65,6 +66,13 @@ export type TodoPatch = Partial<
   >
 >
 
+/** いまの一番上の order。空なら 0。 */
+function topOrder(todos: Todo[]): number {
+  let min = 0
+  for (const todo of todos) if (todo.order < min) min = todo.order
+  return min
+}
+
 export function createTodo(
   input: NewTodoInput,
   now: string = new Date().toISOString(),
@@ -85,6 +93,8 @@ export function createTodo(
     subtasks: [],
     notifiedAt: null,
     startDate: input.startDate ?? null,
+    // 既定は 0。追加時に一覧の先頭へ来るよう、reducer 側で振り直す。
+    order: input.order ?? 0,
     priority: input.priority ?? 'normal',
     repeat: input.repeat ?? 'none',
     spawnedFrom: null,
@@ -226,6 +236,13 @@ export type Action =
       now: string
     }
   | { type: 'category:remove'; id: string; now: string }
+  | {
+      type: 'reorder'
+      id: string
+      /** この id の直前に置く。null なら末尾。 */
+      before: string | null
+      now: string
+    }
   | { type: 'memo:update'; text: string; now: string }
   | { type: 'settings:update'; patch: Partial<Settings>; now: string }
 
@@ -278,8 +295,14 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
          * 入らず、サーバーには消えたままの記録が残る。次の同期で
          * 「サーバーのほうが新しい削除」と判定され、戻したはずのものが
          * もう一度消える。
+         *
+         * order は「いまの一番上より小さい値」にする。手で並べているときに
+         * 末尾へ足すと、追加したものが画面の外に出て見えない。
          */
-        todos: [...store.todos, { ...action.todo, updatedAt: action.now }],
+        todos: [
+          ...store.todos,
+          { ...action.todo, updatedAt: action.now, order: topOrder(store.todos) - 1 },
+        ],
         // 復活させたのだから、消した記録は取り下げる。
         tombstones: store.tombstones.filter((t) => t.id !== action.todo.id),
       }
@@ -469,6 +492,35 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
           deletedAt: action.now,
         }),
       }
+
+    case 'reorder': {
+      /*
+       * 動かしたタスクの order だけを書き換える。
+       * 一覧全体に連番を振り直すと、絞り込みで表に出ていないタスクの
+       * 位置まで動いてしまう。両隣の中間を取れば、その 1 件で済む。
+       */
+      const moving = store.todos.find((t) => t.id === action.id)
+      if (moving === undefined || action.before === action.id) return store
+
+      const others = store.todos
+        .filter((t) => t.id !== action.id && !t.done)
+        .sort((a, b) => a.order - b.order)
+
+      let next: number
+      if (action.before === null) {
+        // 末尾へ。
+        next = others.length === 0 ? 0 : others[others.length - 1].order + 1
+      } else {
+        const index = others.findIndex((t) => t.id === action.before)
+        if (index === -1) return store
+        const after = others[index].order
+        // 先頭へ落としたら、いまの先頭より小さい値にする。
+        next = index === 0 ? after - 1 : (others[index - 1].order + after) / 2
+      }
+
+      if (next === moving.order) return store
+      return mapTodo(store, action.id, (todo) => ({ ...todo, order: next, updatedAt: action.now }))
+    }
 
     case 'memo:update': {
       // 上限はここでも掛ける。画面だけで止めると、同期・取り込み経由で超えられる。
@@ -688,14 +740,20 @@ export function sortTodos(todos: Todo[], mode: SortMode = 'due'): Todo[] {
     return a.dueDate < b.dueDate ? -1 : 1
   }
   const byPriority = (a: Todo, b: Todo) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]
+  const byOrder = (a: Todo, b: Todo) => a.order - b.order
 
   return [...todos].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1
 
-    const first = mode === 'priority' ? byPriority(a, b) : byDue(a, b)
-    if (first !== 0) return first
-    const second = mode === 'priority' ? byDue(a, b) : byPriority(a, b)
-    if (second !== 0) return second
+    if (mode === 'manual') {
+      const manual = byOrder(a, b)
+      if (manual !== 0) return manual
+    } else {
+      const first = mode === 'priority' ? byPriority(a, b) : byDue(a, b)
+      if (first !== 0) return first
+      const second = mode === 'priority' ? byDue(a, b) : byPriority(a, b)
+      if (second !== 0) return second
+    }
 
     if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1
     return 0

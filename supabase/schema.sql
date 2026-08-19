@@ -36,6 +36,11 @@ create table if not exists public.todo_items (
   due_date      date,
   -- 着手日。この日が来るまでアプリの一覧に出さない。
   start_date    date,
+  /*
+   * 手で並べ替えたときの位置。小さいほど上。
+   * 間に落とせるよう小数を許すので numeric。integer だと 2 件のあいだに入れられない。
+   */
+  sort_order    numeric not null default 0,
   due_time      time,
   icon          text not null default '',
   category_id   text,
@@ -85,7 +90,7 @@ create table if not exists public.todo_settings (
    */
   memo                 text not null default '',
   memo_updated_at      timestamptz,
-  constraint todo_settings_sort_mode_check check (sort_mode in ('due', 'priority')),
+  constraint todo_settings_sort_mode_check check (sort_mode in ('due', 'priority', 'manual')),
   constraint todo_settings_archive_check check (archive_after_days in (0, 30, 90, 365))
 );
 
