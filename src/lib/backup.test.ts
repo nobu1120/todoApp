@@ -176,3 +176,21 @@ describe('読み込んだものを送り直せるか', () => {
     expect(merged.categories[0].updatedAt).toBe(NOW)
   })
 })
+
+describe('メモ', () => {
+  const withMemo = (text: string, at: string) => ({
+    ...emptyStore, categories: [], memo: { text, updatedAt: at },
+  })
+
+  it('書き出しに含まれる', () => {
+    expect(toBackup(withMemo('買うもの', '2026-08-01T00:00:00.000Z')).store.memo.text).toBe('買うもの')
+  })
+
+  it('読み込みでも更新が新しいほうを残す', () => {
+    const current = withMemo('こちら', '2026-08-03T00:00:00.000Z')
+    const older = withMemo('ファイル', '2026-08-01T00:00:00.000Z')
+    expect(mergeBackup(current, older, NOW).memo.text).toBe('こちら')
+    const newer = withMemo('ファイル', '2026-08-05T00:00:00.000Z')
+    expect(mergeBackup(current, newer, NOW).memo.text).toBe('ファイル')
+  })
+})

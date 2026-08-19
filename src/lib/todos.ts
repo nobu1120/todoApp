@@ -225,6 +225,7 @@ export type Action =
       now: string
     }
   | { type: 'category:remove'; id: string; now: string }
+  | { type: 'memo:update'; text: string; now: string }
   | { type: 'settings:update'; patch: Partial<Settings>; now: string }
 
 /** 指定 id の Todo だけを差し替える。該当しない要素は同一参照のまま残す。 */
@@ -467,6 +468,12 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
           deletedAt: action.now,
         }),
       }
+
+    case 'memo:update':
+      // 中身が同じなら触らない（updatedAt だけ進めて同期を起こさない）。
+      return store.memo.text === action.text
+        ? store
+        : { ...store, memo: { text: action.text, updatedAt: action.now } }
 
     case 'settings:update':
       // 更新時刻を必ず進める。同期時に「どちらが新しいか」の判断材料がこれしかない。

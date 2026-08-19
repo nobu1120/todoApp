@@ -33,6 +33,7 @@ import { parseInput } from './lib/parseInput'
 import { sharedTask } from './lib/shared'
 import { useBackupReminder } from './hooks/useBackupReminder'
 import { CompletionMap } from './components/CompletionMap'
+import { MemoPanel } from './components/MemoPanel'
 
 const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   all: { art: '🌱', title: 'まだタスクがありません' },
@@ -55,11 +56,13 @@ export default function App() {
    * 開いているドロワーは 1 枚だけ。独立した真偽値 2 つにしていると
    * 両方 true になりえて、履歴（pushState）が二重に積まれる。
    */
-  const [drawer, setDrawer] = useState<'settings' | 'account' | null>(null)
+  const [drawer, setDrawer] = useState<'settings' | 'account' | 'memo' | null>(null)
   const settingsOpen = drawer === 'settings'
   const accountOpen = drawer === 'account'
+  const memoOpen = drawer === 'memo'
   const setSettingsOpen = (open: boolean) => setDrawer(open ? 'settings' : null)
   const setAccountOpen = (open: boolean) => setDrawer(open ? 'account' : null)
+  const setMemoOpen = (open: boolean) => setDrawer(open ? 'memo' : null)
   const [showDone, setShowDone] = useState(false)
   const [view, setView] = useState<ViewMode>('list')
   const today = useToday()
@@ -447,6 +450,10 @@ export default function App() {
         )}
       </Drawer>
 
+      <Drawer open={memoOpen} title="メモ" onClose={() => setMemoOpen(false)}>
+        {memoOpen && <MemoPanel memo={todo.store.memo} onChange={todo.updateMemo} />}
+      </Drawer>
+
       <Drawer open={settingsOpen} title="設定" onClose={() => setSettingsOpen(false)}>
         <SettingsPanel
           settings={settings}
@@ -505,6 +512,22 @@ export default function App() {
             leaveSelecting()
           }}
         />
+      )}
+
+      {/*
+        * メモは右下から。選択モード中は下部バーと重なるので出さない。
+        * ドロワーを開いている間も、上に浮いたまま文字に重なるので出さない。
+        */}
+      {!selecting && drawer === null && openId === null && (
+        <button
+          type="button"
+          className="memo-button"
+          onClick={() => setMemoOpen(true)}
+          aria-label="メモを開く"
+        >
+          <Icon name="note" />
+          {todo.store.memo.text !== '' && <span className="memo-button__dot" aria-hidden="true" />}
+        </button>
       )}
 
       {justShared !== null && (

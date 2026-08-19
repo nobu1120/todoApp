@@ -1,4 +1,5 @@
 import type {
+  Memo,
   Category,
   CategoryColor,
   Priority,
@@ -15,7 +16,7 @@ import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 export const STORAGE_KEY = 'todoApp.store'
-export const CURRENT_VERSION = 7
+export const CURRENT_VERSION = 8
 
 /** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -45,6 +46,7 @@ export const emptyStore: TodoStore = {
   categories: DEFAULT_CATEGORIES,
   settings: DEFAULT_SETTINGS,
   tombstones: [],
+  memo: { text: '', updatedAt: new Date(0).toISOString() },
 }
 
 const PRIORITIES: Priority[] = ['high', 'normal', 'low']
@@ -215,6 +217,18 @@ export function migrate(value: unknown, now: number = Date.now()): TodoStore {
           .map((t) => parseTombstone(t, now))
           .filter((t): t is Tombstone => t !== null)
       : [],
+    memo: parseMemo(raw.memo),
+  }
+}
+
+/** v8 で追加。古いデータには無いので空で始める。 */
+function parseMemo(value: unknown): Memo {
+  const empty: Memo = { text: '', updatedAt: new Date(0).toISOString() }
+  if (typeof value !== 'object' || value === null) return empty
+  const raw = value as Record<string, unknown>
+  return {
+    text: typeof raw.text === 'string' ? raw.text : '',
+    updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : empty.updatedAt,
   }
 }
 

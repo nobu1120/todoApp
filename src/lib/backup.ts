@@ -102,5 +102,7 @@ export function mergeBackup(current: TodoStore, incoming: TodoStore, now: string
     // 設定も他の同期経路と同じ規則（更新が新しいほうを採る）で扱う。
     settings:
       incoming.settings.updatedAt > current.settings.updatedAt ? incoming.settings : current.settings,
+    // メモも同じ規則。設定とは別に比べる。
+    memo: incoming.memo.updatedAt > current.memo.updatedAt ? incoming.memo : current.memo,
   }
 }

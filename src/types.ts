@@ -117,12 +117,23 @@ export type Tombstone = {
   deletedAt: string
 }
 
+/**
+ * どこにも属さない 1 枚のメモ。
+ * タスクにするほどでもない下書き・買い物の走り書き・パスワードの控え以外の
+ * 「置き場所に困るもの」を 1 か所に集める。常に 1 枚だけで、増やせない。
+ */
+export type Memo = {
+  text: string
+  updatedAt: string
+}
+
 export type TodoStore = {
-  schemaVersion: 7
+  schemaVersion: 8
   todos: Todo[]
   categories: Category[]
   settings: Settings
   tombstones: Tombstone[]
+  memo: Memo
 }
 
 export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'done'

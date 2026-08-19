@@ -1,4 +1,4 @@
-import type { Category, Repeat, Settings, Todo, TodoStore, Tombstone } from '../types'
+import type { Category, Memo, Repeat, Settings, Todo, TodoStore, Tombstone } from '../types'
 
 /** サーバーから受け取ってよい繰り返しの値。知らない値は 'none' に落とす。 */
 const REMOTE_REPEATS: Repeat[] = [
@@ -65,6 +65,13 @@ export type RemoteSettings = {
   sort_mode: string | null
   archive_after_days: number | null
   updated_at: string
+  /*
+   * 1 枚のメモ。設定と同じ行に置くが、突き合わせは別々に行う。
+   * まとめて 1 つの updated_at で比べると、片方の端末でテーマを変えた瞬間に
+   * もう片方で書いたメモが消える。
+   */
+  memo: string | null
+  memo_updated_at: string | null
 }
 
 /** 'HH:MM:SS' で返ってくることがあるので 'HH:MM' に詰める。 */
@@ -129,6 +136,7 @@ export function toRemoteSettings(
   settings: Settings,
   userId: string,
   timeZone: string,
+  memo: Memo,
 ): RemoteSettings {
   return {
     user_id: userId,
@@ -141,6 +149,8 @@ export function toRemoteSettings(
     // 「いつの設定か」をそのまま載せる。ここを送信時刻にすると、
     // 取り込んだだけの値が常に最新に見えて、他の端末の変更を潰してしまう。
     updated_at: settings.updatedAt,
+    memo: memo.text,
+    memo_updated_at: memo.updatedAt,
   }
 }
 
@@ -345,6 +355,17 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
       ? local.settings
       : fromRemoteSettings(remote.settings, local.settings)
 
+  // ---- メモ ----
+  // 設定とは別に比べる。同じ行に入っているが、別々に書き換わるもの。
+  const remoteMemoAt =
+    remote.settings === null || remote.settings.memo_updated_at === null
+      ? null
+      : atTime(remote.settings.memo_updated_at)
+  const memo: Memo =
+    remoteMemoAt !== null && remoteMemoAt > local.memo.updatedAt
+      ? { text: remote.settings?.memo ?? '', updatedAt: remoteMemoAt }
+      : local.memo
+
   // 消えたカテゴリを指したままのタスクを未分類に落とす。
   const categoryIds = new Set(mergedCategories.keys())
   const todos = [...mergedTodos.values()].map((todo) =>
@@ -360,6 +381,7 @@ export function mergeStore(local: TodoStore, remote: RemoteSnapshot): MergeResul
       categories: [...mergedCategories.values()],
       settings,
       tombstones: local.tombstones,
+      memo,
     },
     pushTodos,
     pushCategories,

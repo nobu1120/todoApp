@@ -77,6 +77,14 @@ create table if not exists public.todo_settings (
   sort_mode            text not null default 'due',
   archive_after_days   integer not null default 0,
   updated_at           timestamptz not null default now(),
+  /*
+   * どこにも属さない 1 枚のメモ。利用者ごとに 1 つなので設定と同じ行に置く。
+   * 突き合わせは設定とは別に行うため、更新時刻を分けて持つ。
+   * 1 つの updated_at でまとめて比べると、片方の端末でテーマを変えた瞬間に
+   * もう片方で書いたメモが消える。
+   */
+  memo                 text not null default '',
+  memo_updated_at      timestamptz,
   constraint todo_settings_sort_mode_check check (sort_mode in ('due', 'priority')),
   constraint todo_settings_archive_check check (archive_after_days in (0, 30, 90, 365))
 );

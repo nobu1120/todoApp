@@ -69,6 +69,8 @@ export function useTodos() {
         dispatch({ type: 'add', todo, now: now() })
         return todo.id
       },
+      /** どこにも属さない 1 枚のメモ。 */
+      updateMemo: (text: string) => dispatch({ type: 'memo:update', text, now: now() }),
       update: (id: string, patch: TodoPatch) =>
         dispatch({ type: 'update', id, patch, now: now() }),
       // 繰り返しタスクの次回ぶんを作れるよう、id と今日をあらかじめ渡す。

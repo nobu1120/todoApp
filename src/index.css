@@ -2274,7 +2274,8 @@ body:has(.app--calendar) {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: calc(100vw - 32px);
+  /* 右下のメモのボタン（52px + 余白）を避ける。 */
+  max-width: calc(100vw - 32px - 76px);
   padding: 8px 8px 8px 18px;
   /* border-strong は「枠線として目立つ色」で、面として塗ると文字が浮かないテーマがある。
      どのテーマでも 7:1 を保証している text / bg の対を反転して使う。 */
@@ -2993,4 +2994,61 @@ body:has(.selection-bar) {
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/*
+ * メモのボタン。右下に固定する。
+ * 「取り消し」のトーストは中央、選択バーは全幅なので、ここだけが空いている。
+ * トーストが伸びて重ならないよう、トースト側の幅を詰めてある。
+ */
+.memo-button {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 55;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.14);
+}
+.memo-button:active {
+  transform: scale(0.94);
+}
+
+/* 中身があることを示す小さな印。 */
+.memo-button__dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.memo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+.memo__text {
+  width: 100%;
+  min-height: 50vh;
+  flex: 1;
+  resize: vertical;
+  line-height: 1.9;
+  font-family: inherit;
+  font-size: 1rem;
+}
+.memo__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
