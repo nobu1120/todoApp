@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Memo } from '../types'
+import { MEMO_MAX, clampMemo, memoLength } from '../lib/storage'
 
 type Props = {
   memo: Memo
@@ -50,20 +51,29 @@ export function MemoPanel({ memo, onChange }: Props) {
     }
   }
 
+  const used = memoLength(text)
+  const left = MEMO_MAX - used
+
   return (
     <div className="memo">
       <textarea
         ref={ref}
         className="memo__text"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => setText(clampMemo(e.target.value))}
         onFocus={focusEnd}
         placeholder="買い物の走り書き、電話の要点、下書きなど"
         aria-label="メモ"
       />
       <p className="memo__hint">
-        打つたびに保存します。
-        {memo.text !== '' && ` ${memo.text.length} 文字`}
+        <span>打つたびに保存します。</span>
+        <span
+          className="memo__count"
+          /* 残りが少ないときだけ色を変える。常に赤いと注意が効かなくなる。 */
+          data-state={left === 0 ? 'full' : left <= 50 ? 'near' : undefined}
+        >
+          {used}/{MEMO_MAX} 字
+        </span>
       </p>
     </div>
   )

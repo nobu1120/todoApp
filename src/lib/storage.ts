@@ -18,6 +18,27 @@ import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './th
 export const STORAGE_KEY = 'todoApp.store'
 export const CURRENT_VERSION = 8
 
+/*
+ * メモの上限。
+ * 長文の置き場にすると、Todo アプリではなくメモアプリの出来損ないになる。
+ * 走り書きが収まる長さで頭打ちにする。
+ *
+ * 数え方は「文字」＝コードポイント。JavaScript の length は UTF-16 の単位なので、
+ * 絵文字 1 つが 2 と数えられ、画面の表示と合わなくなる。
+ */
+export const MEMO_MAX = 500
+
+/** 上限に収める。数えるのも切るのもコードポイント単位。 */
+export function clampMemo(text: string): string {
+  const chars = [...text]
+  return chars.length <= MEMO_MAX ? text : chars.slice(0, MEMO_MAX).join('')
+}
+
+/** 見た目どおりの文字数。 */
+export function memoLength(text: string): number {
+  return [...text].length
+}
+
 /** 墓標を残しておく期間。これを過ぎたら、もうどの端末にも伝わっているとみなす。 */
 const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -227,7 +248,7 @@ function parseMemo(value: unknown): Memo {
   if (typeof value !== 'object' || value === null) return empty
   const raw = value as Record<string, unknown>
   return {
-    text: typeof raw.text === 'string' ? raw.text : '',
+    text: typeof raw.text === 'string' ? clampMemo(raw.text) : '',
     updatedAt: isISOTime(raw.updatedAt) ? raw.updatedAt : empty.updatedAt,
   }
 }

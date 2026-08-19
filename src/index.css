@@ -3052,3 +3052,26 @@ body:has(.selection-bar) {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+/* メモの文字数。数字が動くので、桁で幅が揺れないよう等幅の数字にする。 */
+.memo__hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+.memo__count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.memo__count[data-state='near'] {
+  color: var(--alert-bg);
+  font-weight: 700;
+}
+.memo__count[data-state='full'] {
+  color: var(--alert-fg);
+  background: var(--alert-bg);
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  padding: 1px 7px;
+}

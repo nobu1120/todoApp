@@ -21,6 +21,7 @@ import {
   todayISO,
   weekdayOrdinal,
 } from './date'
+import { clampMemo } from './storage'
 
 export type NewTodoInput = {
   title: string
@@ -469,11 +470,14 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
         }),
       }
 
-    case 'memo:update':
+    case 'memo:update': {
+      // 上限はここでも掛ける。画面だけで止めると、同期・取り込み経由で超えられる。
+      const text = clampMemo(action.text)
       // 中身が同じなら触らない（updatedAt だけ進めて同期を起こさない）。
-      return store.memo.text === action.text
+      return store.memo.text === text
         ? store
-        : { ...store, memo: { text: action.text, updatedAt: action.now } }
+        : { ...store, memo: { text, updatedAt: action.now } }
+    }
 
     case 'settings:update':
       // 更新時刻を必ず進める。同期時に「どちらが新しいか」の判断材料がこれしかない。
