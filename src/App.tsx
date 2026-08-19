@@ -39,7 +39,6 @@ const EMPTY_MESSAGE: Record<StatusFilter, { art: string; title: string }> = {
   active: { art: '🍃', title: '未完了のタスクはありません' },
   today: { art: '☕', title: '今日が期限のタスクはありません' },
   overdue: { art: '✨', title: '期限切れはありません' },
-  waiting: { art: '🧺', title: 'まだ先のタスクはありません' },
   done: { art: '📭', title: '完了したタスクはまだありません' },
 }
 
@@ -114,7 +113,6 @@ export default function App() {
       active: count('active'),
       today: count('today'),
       overdue: count('overdue'),
-      waiting: count('waiting'),
       done: count('done'),
     }
   }, [todos, filter.categoryId, filter.query, today])

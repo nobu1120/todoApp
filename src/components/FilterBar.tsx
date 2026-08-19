@@ -6,7 +6,6 @@ const STATUSES: { value: StatusFilter; label: string }[] = [
   { value: 'active', label: '未完了' },
   { value: 'today', label: '今日' },
   { value: 'overdue', label: '期限切れ' },
-  { value: 'waiting', label: 'あとで' },
   { value: 'done', label: '完了' },
 ]
 

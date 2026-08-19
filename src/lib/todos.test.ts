@@ -8,6 +8,7 @@ import {
   createTodo,
   dueMoment,
   filterTodos,
+  isWaiting,
   mergeIncoming,
   needsAttention,
   nextDueDate,
@@ -1089,7 +1090,7 @@ describe('繰り返しの拡張', () => {
 
 describe('着手日', () => {
   const T = '2026-08-18'
-  const f = (status: 'all' | 'active' | 'today' | 'overdue' | 'done' | 'waiting') =>
+  const f = (status: 'all' | 'active' | 'today' | 'overdue' | 'done') =>
     ({ status, categoryId: null, query: '' }) as Filter
 
   const t = (over: Partial<Todo> & { id: string }) =>
@@ -1114,15 +1115,19 @@ describe('着手日', () => {
       expect(filterTodos([t({ id: 'a' })], f('active'), T)).toHaveLength(1)
     })
 
-    it('「すべて」も作業リストなので出番前は出さない', () => {
-      // ここが既定の画面。出すと着手日を作った意味が無くなる。
+    it('「すべて」には出番前のものも出る（名前のとおり全部）', () => {
       const later = t({ id: 'a', startDate: '2026-09-01' })
-      expect(filterTodos([later], f('all'), T)).toEqual([])
+      expect(filterTodos([later], f('all'), T)).toHaveLength(1)
     })
 
-    it('出番前のものは「あとで」に集まる（隠したまま忘れないように）', () => {
-      const later = t({ id: 'a', startDate: '2026-09-01' })
-      expect(filterTodos([later], f('waiting'), T)).toHaveLength(1)
+    it('出番前かどうかは isWaiting で判定できる（一覧の見た目を変えるのに使う）', () => {
+      expect(isWaiting(t({ id: 'a', startDate: '2026-09-01' }), T)).toBe(true)
+      expect(isWaiting(t({ id: 'b', startDate: '2026-08-01' }), T)).toBe(false)
+      expect(isWaiting(t({ id: 'c' }), T)).toBe(false)
+    })
+
+    it('出番前でも期限切れなら待っていない扱い', () => {
+      expect(isWaiting(t({ id: 'a', startDate: '2026-09-01', dueDate: '2026-08-01' }), T)).toBe(false)
     })
 
     it('着手日が先でも、期限が切れていれば出す（見落とす方が困る）', () => {

@@ -125,7 +125,7 @@ export type TodoStore = {
   tombstones: Tombstone[]
 }
 
-export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'waiting' | 'done'
+export type StatusFilter = 'all' | 'active' | 'today' | 'overdue' | 'done'
 
 export type Filter = {
   status: StatusFilter

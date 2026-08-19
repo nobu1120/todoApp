@@ -585,22 +585,14 @@ export function isWaiting(todo: Todo, today: string): boolean {
 export function matchesStatus(todo: Todo, status: StatusFilter, today: string): boolean {
   switch (status) {
     case 'all':
-      /*
-       * 「すべて」は既定の画面なので、ここが作業リストになる。
-       * 出番前のものまで出すと、着手日を作った意味が無くなる
-       * （3 週間後が締切のタスクが今日から居座り続ける）。
-       * 隠したものは 'waiting' に集めてあり、件数も出るので忘れない。
-       */
-      return !isWaiting(todo, today)
+      // 名前のとおり全部出す。着手日で隠すのは「未完了」「今日」の役目。
+      return true
     case 'active':
       return !todo.done && !isWaiting(todo, today)
     case 'today':
       return !todo.done && !isWaiting(todo, today) && todo.dueDate === today
     case 'overdue':
       return !todo.done && isOverdue(todo.dueDate, today)
-    case 'waiting':
-      // 着手日がまだ来ていないもの。隠したまま忘れないための置き場。
-      return !todo.done && isWaiting(todo, today)
     case 'done':
       return todo.done
   }

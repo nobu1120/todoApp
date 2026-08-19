@@ -1,8 +1,8 @@
 import { memo } from 'react'
 import type { Category, Todo } from '../types'
-import { progressOf } from '../lib/todos'
+import { isWaiting, progressOf } from '../lib/todos'
 import { findCategory } from '../lib/categories'
-import { formatDue, isOverdue, isToday } from '../lib/date'
+import { formatDue, formatDueLabel, isOverdue, isToday } from '../lib/date'
 import { Icon } from './Icon'
 
 type Props = {
@@ -36,16 +36,20 @@ export const TodoItem = memo(function TodoItem({
   const category = findCategory(categories, todo.categoryId)
   const progress = progressOf(todo)
   const overdue = !todo.done && isOverdue(todo.dueDate, today)
+  // まだ着手日が来ていないもの。「すべて」に出るので、見分けが付くようにする。
+  const waiting = !todo.done && isWaiting(todo, today)
   const dueToday = !todo.done && isToday(todo.dueDate, today)
 
   // メタ行は、出すものがあるときだけ描画する（空行で高さが揺れないように）。
-  const hasMeta = category !== null || progress !== null || todo.notes.trim() !== ''
+  const hasMeta =
+    category !== null || progress !== null || todo.notes.trim() !== '' || waiting
 
   return (
     <li
       className={
         'todo-item' +
         (todo.done ? ' todo-item--done' : '') +
+        (waiting ? ' todo-item--waiting' : '') +
         (selecting && selected ? ' is-selected' : '')
       }
       data-priority={todo.priority}
@@ -90,6 +94,11 @@ export const TodoItem = memo(function TodoItem({
 
         {hasMeta && (
           <span className="todo-item__meta">
+            {waiting && todo.startDate !== null && (
+              <span className="todo-item__waiting">
+                {formatDueLabel(todo.startDate, today)}から
+              </span>
+            )}
             {category !== null && (
               <span className="todo-item__cat" data-color={category.color}>
                 <span className="todo-item__dot" aria-hidden="true" />

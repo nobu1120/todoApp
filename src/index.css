@@ -2976,3 +2976,21 @@ body:has(.selection-bar) {
   padding-bottom: 10px;
   flex: none;
 }
+
+/*
+ * まだ着手日が来ていないタスク。
+ * 「すべて」には出るので、いま手を付けるものと見分けが付くようにする。
+ * 消さずに弱めるだけ——隠すのは「未完了」「今日」の役目。
+ */
+.todo-item--waiting {
+  opacity: 0.72;
+}
+.todo-item__waiting {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
