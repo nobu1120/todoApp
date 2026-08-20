@@ -12,6 +12,7 @@ type Reminder = {
   icon: string
   due_date: string
   due_time: string
+  due_at: string
 }
 
 const admin = createClient(
@@ -27,6 +28,20 @@ async function loadConfig(): Promise<Record<string, string>> {
 
 /** 'HH:MM:SS' を 'HH:MM' に詰める。秒まで出すと通知が野暮ったい。 */
 const shortTime = (t: string) => (t ?? '').slice(0, 5)
+
+/*
+ * 通知を押さえておいてもらう上限（秒）。
+ *
+ * 既定のままだと web-push は 4 週間預ける。端末が圏外だっただけで、
+ * 何日も経ってから「期限になりました」が鳴っていた。
+ * DB 側が拾う窓（期限から 24 時間）と同じところで切って、
+ * 窓を出たものは配信させずに捨てる。
+ */
+const WINDOW_MS = 24 * 60 * 60 * 1000
+const ttlFor = (dueAt: string) => {
+  const left = Date.parse(dueAt) + WINDOW_MS - Date.now()
+  return Number.isNaN(left) ? 60 : Math.max(60, Math.floor(left / 1000))
+}
 
 Deno.serve(async (req: Request) => {
   try {
@@ -81,11 +96,16 @@ Deno.serve(async (req: Request) => {
       // 送り先が 1 つも無いなら通知済みにしない。端末を登録し直したときに拾い直せる。
       if (targets.length === 0) continue
 
+      const dueLabel = `${reminder.due_date} ${shortTime(reminder.due_time)}`
       const payload = JSON.stringify({
         id: reminder.item_id,
         title: `${reminder.icon ? `${reminder.icon} ` : ''}${reminder.title}`,
-        body: `期限: ${reminder.due_date} ${shortTime(reminder.due_time)}`,
+        body: `期限: ${dueLabel}`,
+        // 遅れて届いたときに、Service Worker 側で言い方を変えるために渡す。
+        due: reminder.due_at,
+        dueLabel,
       })
+      const ttl = ttlFor(reminder.due_at)
 
       let deliveredToAny = false
       for (const target of targets) {
@@ -96,6 +116,9 @@ Deno.serve(async (req: Request) => {
               keys: { p256dh: target.p256dh, auth: target.auth },
             },
             payload,
+            // urgency を上げないと、端末が省電力に入っている間はまとめて
+            // 後回しにされる。期限の通知は遅れたら意味が薄い。
+            { TTL: ttl, urgency: 'high' },
           )
           sent++
           deliveredToAny = true

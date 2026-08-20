@@ -175,27 +175,41 @@ end $$;
  * （渡していたため、公開している anon キーだけで全員のタスク名が読めた）。
  * 呼ぶのは Edge Function（service_role）だけ。
  */
-create or replace function public.todo_due_reminders()
+-- 返す列を増やすので、置き換えではなく作り直す。
+drop function if exists public.todo_due_reminders();
+
+create function public.todo_due_reminders()
 returns table(
-  item_id text, user_id uuid, title text, icon text, due_date date, due_time time
+  item_id text, user_id uuid, title text, icon text,
+  due_date date, due_time time, due_at timestamptz
 )
 language sql
 security definer
 set search_path to 'public'
 as $$
-  select
-    i.id, i.user_id, i.title, i.icon, i.due_date,
-    coalesce(i.due_time, s.default_notify_time)
-  from public.todo_items i
-  join public.todo_settings s on s.user_id = i.user_id
-  where i.deleted_at is null
-    and i.done = false
-    and i.notified_at is null
-    and i.due_date is not null
-    and s.notifications_enabled
-    and ((i.due_date + coalesce(i.due_time, s.default_notify_time)) at time zone s.time_zone) <= now()
-    and now() - ((i.due_date + coalesce(i.due_time, s.default_notify_time)) at time zone s.time_zone)
-        < interval '24 hours';
+  select r.item_id, r.user_id, r.title, r.icon, r.due_date, r.due_time, r.due_at
+  from (
+    select
+      i.id as item_id, i.user_id, i.title, i.icon, i.due_date,
+      coalesce(i.due_time, s.default_notify_time) as due_time,
+      -- 通知すべき瞬間そのもの。Edge Function が TTL の計算と
+      -- 「遅れて届いたか」の判定に使うので、日付と時刻とは別に返す。
+      ((i.due_date + coalesce(i.due_time, s.default_notify_time))
+         at time zone s.time_zone) as due_at
+    from public.todo_items i
+    join public.todo_settings s on s.user_id = i.user_id
+    where i.deleted_at is null
+      and i.done = false
+      and i.notified_at is null
+      and i.due_date is not null
+      and s.notifications_enabled
+  ) r
+  where r.due_at <= now()
+    and now() - r.due_at < interval '24 hours'
+  -- 遅れているものから先に送る。取りこぼしても次の分で拾えるよう上限を切る
+  -- （1 回の実行が長引くと、その間に来た期限まで遅れる）。
+  order by r.due_at
+  limit 500;
 $$;
 
 revoke execute on function public.todo_due_reminders() from public, anon, authenticated;

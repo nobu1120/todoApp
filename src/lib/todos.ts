@@ -695,6 +695,26 @@ export function todosToNotify(todos: Todo[], settings: Settings, now: Date): Tod
   })
 }
 
+/**
+ * 次に通知すべき時刻。まだ先のものが 1 つも無ければ null。
+ *
+ * 定期的に見に行く（ポーリング）のをやめ、この時刻ぴったりに起こすために使う。
+ * 30 秒ごとに見に行く作りだと、9:00 の通知が最悪 9:00:30 になっていた。
+ */
+export function nextNotifyAt(todos: Todo[], settings: Settings, now: Date): Date | null {
+  let soonest: number | null = null
+  for (const todo of todos) {
+    if (todo.done || todo.notifiedAt !== null) continue
+    const moment = dueMoment(todo, settings)
+    if (moment === null) continue
+    const at = moment.getTime()
+    // 過ぎたものは todosToNotify の担当。ここは「これから来る」ぶんだけ。
+    if (at <= now.getTime()) continue
+    if (soonest === null || at < soonest) soonest = at
+  }
+  return soonest === null ? null : new Date(soonest)
+}
+
 // --- 表示用の絞り込み・並び替え ------------------------------------------------
 
 /**

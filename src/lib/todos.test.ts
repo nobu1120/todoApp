@@ -12,6 +12,7 @@ import {
   mergeIncoming,
   needsAttention,
   nextDueDate,
+  nextNotifyAt,
   progressOf,
   sortTodos,
   storeReducer,
@@ -364,6 +365,36 @@ describe('通知の判定', () => {
 
     const yesterday = todo({ id: 'b', dueDate: '2026-08-16', dueTime: '18:00' })
     expect(todosToNotify([yesterday], settings, at(10)).map((x) => x.id)).toEqual(['b'])
+  })
+})
+
+describe('nextNotifyAt', () => {
+  const settings: Settings = { ...DEFAULT_SETTINGS, notificationsEnabled: true }
+  const at = (h: number, m = 0) => new Date(2026, 7, 17, h, m)
+
+  it('いちばん近い未来の期限を返す', () => {
+    const later = todo({ id: 'a', dueDate: TODAY, dueTime: '18:00' })
+    const sooner = todo({ id: 'b', dueDate: TODAY, dueTime: '12:00' })
+    expect(nextNotifyAt([later, sooner], settings, at(9))).toEqual(at(12))
+  })
+
+  it('過ぎたぶんは数えない（そちらは todosToNotify が拾う）', () => {
+    const past = todo({ id: 'a', dueDate: TODAY, dueTime: '08:00' })
+    const future = todo({ id: 'b', dueDate: TODAY, dueTime: '15:00' })
+    expect(nextNotifyAt([past], settings, at(9))).toBeNull()
+    expect(nextNotifyAt([past, future], settings, at(9))).toEqual(at(15))
+  })
+
+  it('完了済み・通知済み・期限なしは数えない', () => {
+    const done = todo({ id: 'a', dueDate: TODAY, dueTime: '12:00', done: true })
+    const already = todo({ id: 'b', dueDate: TODAY, dueTime: '13:00', notifiedAt: 'x' })
+    const noDue = todo({ id: 'c' })
+    expect(nextNotifyAt([done, already, noDue], settings, at(9))).toBeNull()
+  })
+
+  it('時刻未指定なら設定の既定時刻で数える', () => {
+    const tomorrow = todo({ id: 'a', dueDate: '2026-08-18' })
+    expect(nextNotifyAt([tomorrow], settings, at(9))).toEqual(new Date(2026, 7, 18, 9, 0))
   })
 })
 
