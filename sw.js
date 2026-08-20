@@ -127,6 +127,9 @@ self.addEventListener('fetch', (event) => {
   )
 })
 
+/** これ以上ずれて届いたら、定刻の通知ではなく「過ぎている」として出す。 */
+const LATE_MS = 5 * 60 * 1000
+
 // サーバーから届いた通知。アプリを閉じていても、ここが起きて通知を出す。
 self.addEventListener('push', (event) => {
   let payload = {}
@@ -137,9 +140,22 @@ self.addEventListener('push', (event) => {
   }
 
   const title = payload.title || 'Todo'
+
+  /*
+   * 圏外だった端末には、押さえられていた通知がまとめて届く。
+   * そのまま出すと、とっくに過ぎた期限が「今」来たように見えてしまう。
+   * 遅れて届いたぶんは、遅れたと分かる言い方にする。
+   */
+  const due = typeof payload.due === 'string' ? Date.parse(payload.due) : NaN
+  const late = Number.isNaN(due) ? 0 : Date.now() - due
+  const body =
+    late > LATE_MS && payload.dueLabel
+      ? `期限を過ぎています（${payload.dueLabel}）`
+      : payload.body || '期限になりました'
+
   event.waitUntil(
     self.registration.showNotification(title, {
-      body: payload.body || '期限になりました',
+      body,
       // 同じタスクの通知が積み上がらないよう、id で置き換える。
       tag: payload.id ? `todo-${payload.id}` : 'todo',
       icon: './icon-192.png',
