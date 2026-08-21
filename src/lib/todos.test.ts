@@ -368,6 +368,55 @@ describe('通知の判定', () => {
   })
 })
 
+describe('サブタスクの並べ替えと復元', () => {
+  const now = '2026-08-21T00:00:00.000Z'
+  const sub = (id: string) => ({ id, title: `sub-${id}`, done: false, dueDate: null })
+  const base = todo({ id: 'a', subtasks: [sub('1'), sub('2'), sub('3')] })
+  const store = { ...emptyStore, todos: [base] }
+  const ids = (s: TodoStore) => s.todos[0].subtasks.map((x) => x.id)
+
+  it('指定した行の直前へ移す', () => {
+    const next = storeReducer(store, {
+      type: 'subtask:reorder', id: 'a', subtaskId: '3', before: '1', now,
+    })
+    expect(ids(next)).toEqual(['3', '1', '2'])
+  })
+
+  it('before が null なら末尾へ', () => {
+    const next = storeReducer(store, {
+      type: 'subtask:reorder', id: 'a', subtaskId: '1', before: null, now,
+    })
+    expect(ids(next)).toEqual(['2', '3', '1'])
+  })
+
+  it('位置が変わらないなら更新時刻も進めない（無駄な同期を起こさない）', () => {
+    const next = storeReducer(store, {
+      type: 'subtask:reorder', id: 'a', subtaskId: '1', before: '2', now,
+    })
+    expect(ids(next)).toEqual(['1', '2', '3'])
+    expect(next.todos[0].updatedAt).toBe(base.updatedAt)
+  })
+
+  it('消したサブタスクは元の位置へ戻る（末尾ではなく）', () => {
+    const removed = storeReducer(store, {
+      type: 'subtask:remove', id: 'a', subtaskId: '2', now,
+    })
+    expect(ids(removed)).toEqual(['1', '3'])
+
+    const back = storeReducer(removed, {
+      type: 'subtask:restore', id: 'a', subtask: sub('2'), index: 1, now,
+    })
+    expect(ids(back)).toEqual(['1', '2', '3'])
+  })
+
+  it('取り消しを連打しても増えない', () => {
+    const once = storeReducer(store, {
+      type: 'subtask:restore', id: 'a', subtask: sub('2'), index: 1, now,
+    })
+    expect(ids(once)).toEqual(['1', '2', '3'])
+  })
+})
+
 describe('nextNotifyAt', () => {
   const settings: Settings = { ...DEFAULT_SETTINGS, notificationsEnabled: true }
   const at = (h: number, m = 0) => new Date(2026, 7, 17, h, m)

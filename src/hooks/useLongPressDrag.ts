@@ -15,10 +15,15 @@ export type DragState = {
 type Options = {
   /** 並びを確定する。 */
   onDrop: (id: string, before: string | null) => void
-  /** 長押ししたまま動かさずに離した。 */
-  onHold: (id: string) => void
+  /** 長押ししたまま動かさずに離した。渡さなければ何も起きない。 */
+  onHold?: (id: string) => void
   /** 触らせない状態（選択モード中など）。 */
   disabled?: boolean
+  /**
+   * 行を見分ける data 属性の名前。
+   * タスクの一覧とサブタスクの一覧で同じ仕掛けを使うため、外から差せるようにしている。
+   */
+  attr?: string
 }
 
 /**
@@ -33,7 +38,12 @@ type Options = {
  * React の onTouchMove は passive なので preventDefault できない。
  * そのため addEventListener を自分で張っている。
  */
-export function useLongPressDrag({ onDrop, onHold, disabled = false }: Options) {
+export function useLongPressDrag({
+  onDrop,
+  onHold,
+  disabled = false,
+  attr = 'todo-id',
+}: Options) {
   const [drag, setDrag] = useState<DragState>({ id: null, before: null })
   const listRef = useRef<HTMLUListElement>(null)
 
@@ -63,17 +73,21 @@ export function useLongPressDrag({ onDrop, onHold, disabled = false }: Options) 
   }, [])
 
   /** 指の位置から挿入先を決める。行の上半分なら「その行の前」。 */
-  const targetAt = useCallback((y: number): string | null => {
-    const list = listRef.current
-    if (list === null) return null
-    const rows = [...list.querySelectorAll<HTMLElement>('[data-todo-id]')]
-    for (const row of rows) {
-      if (row.dataset.todoId === pressedId.current) continue
-      const box = row.getBoundingClientRect()
-      if (y < box.top + box.height / 2) return row.dataset.todoId ?? null
-    }
-    return null
-  }, [])
+  const targetAt = useCallback(
+    (y: number): string | null => {
+      const list = listRef.current
+      if (list === null) return null
+      const rows = [...list.querySelectorAll<HTMLElement>(`[data-${attr}]`)]
+      for (const row of rows) {
+        const rowId = row.getAttribute(`data-${attr}`)
+        if (rowId === pressedId.current) continue
+        const box = row.getBoundingClientRect()
+        if (y < box.top + box.height / 2) return rowId
+      }
+      return null
+    },
+    [attr],
+  )
 
   const onPointerDown = useCallback(
     (id: string, clientY: number) => {
@@ -124,7 +138,7 @@ export function useLongPressDrag({ onDrop, onHold, disabled = false }: Options) 
     if (id === null || !wasHeld) return
     // 動かしていれば並べ替え、動かしていなければメニュー。
     if (wasMoved) onDrop(id, before)
-    else onHold(id)
+    else onHold?.(id)
   }, [onDrop, onHold, reset])
 
   useEffect(() => {

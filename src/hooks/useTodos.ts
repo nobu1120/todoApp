@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import type { Category, CategoryColor, Settings, Todo, TodoStore } from '../types'
+import type { Category, CategoryColor, Settings, Subtask, Todo, TodoStore } from '../types'
 import {
   createSubtask,
   createTodo,
@@ -16,6 +16,16 @@ import { todayISO } from '../lib/date'
 /** 削除の取り消しを出しておく時間。 */
 const UNDO_TIMEOUT_MS = 6000
 
+/**
+ * 取り消せる削除。
+ *
+ * タスクとサブタスクで別々の状態を持つと、取り消しの帯が 2 枚重なりうる。
+ * 1 つにまとめて、最後に消したものだけを戻せるようにする。
+ */
+export type Undoable =
+  | { kind: 'todos'; todos: Todo[] }
+  | { kind: 'subtask'; todoId: string; subtask: Subtask; index: number }
+
 export function useTodos() {
   // 起動時に一度だけ、古い完了タスクを掃除する。
   const [store, dispatch] = useReducer(storeReducer, undefined, () =>
@@ -23,11 +33,11 @@ export function useTodos() {
   )
 
   /*
-   * 直前に削除した Todo。「元に戻す」で丸ごと復元する。
+   * 直前に削除したもの。「元に戻す」で丸ごと復元する。
    * まとめて削除もここを通す。破壊性が最も高い操作にだけ安全網が無い、
    * という逆転が起きていた。
    */
-  const [lastRemoved, setLastRemoved] = useState<Todo[] | null>(null)
+  const [lastRemoved, setLastRemoved] = useState<Undoable | null>(null)
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 保存できていないこと自体を画面に出す（唯一の保存先が黙って落ちるのを防ぐ）。
@@ -116,8 +126,8 @@ export function useTodos() {
         dispatch({ type: 'subtask:rename', id, subtaskId, title, now: now() }),
       setSubtaskDue: (id: string, subtaskId: string, dueDate: string | null) =>
         dispatch({ type: 'subtask:due', id, subtaskId, dueDate, now: now() }),
-      removeSubtask: (id: string, subtaskId: string) =>
-        dispatch({ type: 'subtask:remove', id, subtaskId, now: now() }),
+      reorderSubtask: (id: string, subtaskId: string, before: string | null) =>
+        dispatch({ type: 'subtask:reorder', id, subtaskId, before, now: now() }),
 
       addCategory: (name: string, color: CategoryColor) =>
         dispatch({ type: 'category:add', category: createCategory(name, color) }),
@@ -140,10 +150,10 @@ export function useTodos() {
     setLastRemoved(null)
   }, [])
 
-  const armUndo = useCallback((targets: Todo[]) => {
-    if (targets.length === 0) return
+  const armUndo = useCallback((target: Undoable) => {
+    if (target.kind === 'todos' && target.todos.length === 0) return
     if (undoTimer.current !== null) clearTimeout(undoTimer.current)
-    setLastRemoved(targets)
+    setLastRemoved(target)
     undoTimer.current = setTimeout(() => {
       undoTimer.current = null
       setLastRemoved(null)
@@ -154,7 +164,7 @@ export function useTodos() {
     (id: string) => {
       const target = store.todos.find((todo) => todo.id === id)
       dispatch({ type: 'remove', id, now: now() })
-      if (target) armUndo([target])
+      if (target) armUndo({ kind: 'todos', todos: [target] })
     },
     [store.todos, armUndo],
   )
@@ -164,7 +174,7 @@ export function useTodos() {
       const set = new Set(ids)
       const targets = store.todos.filter((todo) => set.has(todo.id))
       dispatch({ type: 'bulk:remove', ids, now: now() })
-      armUndo(targets)
+      armUndo({ kind: 'todos', todos: targets })
     },
     [store.todos, armUndo],
   )
@@ -180,11 +190,49 @@ export function useTodos() {
     [store],
   )
 
+  /*
+   * サブタスクを消したときも取り消せるようにする。
+   * 詳細画面の × は的が小さく、隣の名前欄と紙一重なので、
+   * 消したものが戻せないと打ち直しになる。
+   */
+  const removeSubtask = useCallback(
+    (id: string, subtaskId: string) => {
+      const todo = store.todos.find((t) => t.id === id)
+      const index = todo?.subtasks.findIndex((s) => s.id === subtaskId) ?? -1
+      dispatch({ type: 'subtask:remove', id, subtaskId, now: now() })
+      if (todo !== undefined && index !== -1) {
+        armUndo({ kind: 'subtask', todoId: id, subtask: todo.subtasks[index], index })
+      }
+    },
+    [store.todos, armUndo],
+  )
+
   const undoRemove = useCallback(() => {
     if (lastRemoved === null) return
-    for (const todo of lastRemoved) dispatch({ type: 'add', todo, now: now() })
+    if (lastRemoved.kind === 'subtask') {
+      dispatch({
+        type: 'subtask:restore',
+        id: lastRemoved.todoId,
+        subtask: lastRemoved.subtask,
+        index: lastRemoved.index,
+        now: now(),
+      })
+    } else {
+      for (const todo of lastRemoved.todos) dispatch({ type: 'add', todo, now: now() })
+    }
     clearUndo()
   }, [lastRemoved, clearUndo])
 
-  return { store, ...actions, remove, bulkRemove, importStore, lastRemoved, undoRemove, clearUndo, saveFailed }
+  return {
+    store,
+    ...actions,
+    remove,
+    bulkRemove,
+    removeSubtask,
+    importStore,
+    lastRemoved,
+    undoRemove,
+    clearUndo,
+    saveFailed,
+  }
 }

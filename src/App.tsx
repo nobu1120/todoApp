@@ -465,6 +465,7 @@ export default function App() {
             onToggleSubtask={(sid) => todo.toggleSubtask(openTodo.id, sid)}
             onRenameSubtask={(sid, title) => todo.renameSubtask(openTodo.id, sid, title)}
             onSetSubtaskDue={(sid, due) => todo.setSubtaskDue(openTodo.id, sid, due)}
+            onReorderSubtask={(sid, before) => todo.reorderSubtask(openTodo.id, sid, before)}
             onRemoveSubtask={(sid) => todo.removeSubtask(openTodo.id, sid)}
             onToggle={() => todo.toggle(openTodo.id)}
             today={today}
@@ -645,9 +646,11 @@ export default function App() {
       {justShared === null && todo.lastRemoved !== null && (
         <div className="undo" role="status">
           <span className="undo__text">
-            {todo.lastRemoved.length === 1
-              ? `「${todo.lastRemoved[0].title}」を削除しました`
-              : `${todo.lastRemoved.length} 件を削除しました`}
+            {todo.lastRemoved.kind === 'subtask'
+              ? `「${todo.lastRemoved.subtask.title}」を削除しました`
+              : todo.lastRemoved.todos.length === 1
+                ? `「${todo.lastRemoved.todos[0].title}」を削除しました`
+                : `${todo.lastRemoved.todos.length} 件を削除しました`}
           </span>
           <button type="button" onClick={todo.undoRemove}>
             元に戻す

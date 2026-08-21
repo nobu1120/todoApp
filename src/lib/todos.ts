@@ -270,6 +270,16 @@ export type Action =
       now: string
     }
   | { type: 'subtask:remove'; id: string; subtaskId: string; now: string }
+  /** 消したサブタスクを元の位置へ戻す。末尾に足すと並びが崩れる。 */
+  | { type: 'subtask:restore'; id: string; subtask: Subtask; index: number; now: string }
+  | {
+      type: 'subtask:reorder'
+      id: string
+      subtaskId: string
+      /** この id の直前に置く。null なら末尾。 */
+      before: string | null
+      now: string
+    }
   | { type: 'category:add'; category: Category }
   | {
       type: 'category:update'
@@ -509,6 +519,36 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
         ...s,
         dueDate: action.dueDate,
       }))
+
+    case 'subtask:restore':
+      return mapTodo(store, action.id, (todo) => {
+        // 二重に戻さない（取り消しを連打されても増えないように）。
+        if (todo.subtasks.some((s) => s.id === action.subtask.id)) return todo
+        const at = Math.min(Math.max(action.index, 0), todo.subtasks.length)
+        return {
+          ...todo,
+          subtasks: [
+            ...todo.subtasks.slice(0, at),
+            action.subtask,
+            ...todo.subtasks.slice(at),
+          ],
+          updatedAt: action.now,
+        }
+      })
+
+    case 'subtask:reorder':
+      return mapTodo(store, action.id, (todo) => {
+        const moving = todo.subtasks.find((s) => s.id === action.subtaskId)
+        if (moving === undefined) return todo
+        const rest = todo.subtasks.filter((s) => s.id !== action.subtaskId)
+        const at =
+          action.before === null ? rest.length : rest.findIndex((s) => s.id === action.before)
+        if (at === -1) return todo
+        const next = [...rest.slice(0, at), moving, ...rest.slice(at)]
+        // 位置が変わらないなら更新時刻も進めない（無駄な同期を起こさない）。
+        if (next.every((s, i) => s.id === todo.subtasks[i].id)) return todo
+        return { ...todo, subtasks: next, updatedAt: action.now }
+      })
 
     case 'subtask:remove':
       return mapTodo(store, action.id, (todo) => ({

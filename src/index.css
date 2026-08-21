@@ -3292,6 +3292,57 @@ body:has(.selection-bar) {
   margin-top: 2px;
 }
 
+/* --- サブタスクの並べ替え（詳細画面） --- */
+
+/*
+ * つかむのは取っ手からだけ。
+ * 行の大半は入力欄なので、そこで長押しすると文字選択と取り合いになる。
+ */
+.subtask__grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 44px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-size: 0.95rem;
+  cursor: grab;
+  /* ここを押している間はブラウザのスクロールにも文字選択にも渡さない。 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.subtasks__list.is-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.subtask--held {
+  position: relative;
+  z-index: 2;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.16);
+}
+
+.subtask--drop-before::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* 落とす目印を出すために、行を位置の基準にする。 */
+.subtask { position: relative; }
+
 @media (prefers-reduced-motion: reduce) {
   .todo-item--held { transform: none; }
 }

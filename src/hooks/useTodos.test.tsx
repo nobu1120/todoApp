@@ -103,10 +103,34 @@ describe('useTodos', () => {
 
     act(() => result.current.remove(id))
     expect(result.current.store.todos).toHaveLength(0)
-    expect(result.current.lastRemoved?.[0].title).toBe('消す')
+    const undoable = result.current.lastRemoved
+    expect(undoable?.kind === 'todos' && undoable.todos[0].title).toBe('消す')
 
     act(() => result.current.undoRemove())
     expect(result.current.store.todos).toHaveLength(1)
+  })
+
+  it('サブタスクを消しても取り消せる（元の位置に戻る）', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => result.current.add({ title: '親' }))
+    const id = result.current.store.todos[0].id
+    act(() => result.current.addSubtask(id, '1つめ'))
+    act(() => result.current.addSubtask(id, '2つめ'))
+    act(() => result.current.addSubtask(id, '3つめ'))
+
+    const middle = result.current.store.todos[0].subtasks[1].id
+    act(() => result.current.removeSubtask(id, middle))
+    expect(result.current.store.todos[0].subtasks.map((s) => s.title)).toEqual(['1つめ', '3つめ'])
+
+    const undoable = result.current.lastRemoved
+    expect(undoable?.kind === 'subtask' && undoable.subtask.title).toBe('2つめ')
+
+    act(() => result.current.undoRemove())
+    expect(result.current.store.todos[0].subtasks.map((s) => s.title)).toEqual([
+      '1つめ',
+      '2つめ',
+      '3つめ',
+    ])
   })
 
   it('繰り返しタスクを完了にすると、次回ぶんが増える', () => {
@@ -169,7 +193,8 @@ describe('まとめて削除', () => {
 
     act(() => result.current.bulkRemove(ids))
     expect(result.current.store.todos).toHaveLength(1)
-    expect(result.current.lastRemoved).toHaveLength(2)
+    const undone = result.current.lastRemoved
+    expect(undone?.kind === 'todos' && undone.todos).toHaveLength(2)
 
     act(() => result.current.undoRemove())
     expect(result.current.store.todos).toHaveLength(3)
