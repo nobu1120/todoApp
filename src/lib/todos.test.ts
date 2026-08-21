@@ -211,7 +211,7 @@ describe('storeReducer: タスク', () => {
 
 describe('storeReducer: サブタスク', () => {
   const now = '2026-08-17T12:00:00.000Z'
-  const sub = (id: string, done = false) => ({ id, title: `sub-${id}`, done })
+  const sub = (id: string, done = false) => ({ id, title: `sub-${id}`, done, dueDate: null })
   const base = todo({ id: 'a', subtasks: [sub('s1'), sub('s2', true)] })
 
   it('追加する', () => {
@@ -266,17 +266,17 @@ describe('progressOf', () => {
     const t = todo({
       id: 'a',
       subtasks: [
-        { id: '1', title: 'x', done: true },
-        { id: '2', title: 'y', done: false },
-        { id: '3', title: 'z', done: true },
-        { id: '4', title: 'w', done: false },
+        { id: '1', title: 'x', done: true, dueDate: null },
+        { id: '2', title: 'y', done: false, dueDate: null },
+        { id: '3', title: 'z', done: true, dueDate: null },
+        { id: '4', title: 'w', done: false, dueDate: null },
       ],
     })
     expect(progressOf(t)).toEqual({ done: 2, total: 4, ratio: 0.5 })
   })
 
   it('全部終わっていれば 1', () => {
-    const t = todo({ id: 'a', subtasks: [{ id: '1', title: 'x', done: true }] })
+    const t = todo({ id: 'a', subtasks: [{ id: '1', title: 'x', done: true, dueDate: null }] })
     expect(progressOf(t)).toEqual({ done: 1, total: 1, ratio: 1 })
   })
 })
@@ -571,11 +571,28 @@ describe('migrate', () => {
     expect(s.categories).toMatchObject([{ id: 'c1', name: '色が変', color: 'gray' }])
   })
 
+  it('サブタスクの期限は日付として読めるものだけ通す', () => {
+    const s = migrate({
+      todos: [
+        {
+          id: 'a',
+          title: 'x',
+          subtasks: [
+            { id: 's1', title: 'ok', done: false, dueDate: '2026-08-21' },
+            { id: 's2', title: '壊れた日付', done: false, dueDate: '8/21' },
+            { id: 's3', title: '日付が数値', done: false, dueDate: 20260821 },
+          ],
+        },
+      ],
+    })
+    expect(s.todos[0].subtasks.map((x) => x.dueDate)).toEqual(['2026-08-21', null, null])
+  })
+
   it('サブタスクを検証して壊れた要素を捨てる', () => {
     const s = migrate({
       todos: [{ id: 'a', title: 'x', subtasks: [{ id: 's1', title: 'ok', done: true }, {}, null] }],
     })
-    expect(s.todos[0].subtasks).toEqual([{ id: 's1', title: 'ok', done: true }])
+    expect(s.todos[0].subtasks).toEqual([{ id: 's1', title: 'ok', done: true, dueDate: null }])
   })
 
   it('v2 のデータは墓標の配列を足すだけで引き上がる', () => {
@@ -673,16 +690,35 @@ describe('繰り返し', () => {
     expect(next.todos).toHaveLength(1)
   })
 
-  it('次回ぶんはサブタスクのチェックを戻して引き継ぐ', () => {
+  it('次回ぶんはサブタスクの期限も、親が動いたぶんだけずらす', () => {
+    // 親は 8/17 → 8/24（毎週）。「3 日前」の関係を次回でも保つ。
     const withSubs = {
       ...base,
-      subtasks: [{ id: 's1', title: '下書き', done: true }],
+      subtasks: [
+        { id: 's1', title: '下書き', done: true, dueDate: '2026-08-14' },
+        { id: 's2', title: '日付なし', done: false, dueDate: null },
+      ],
     }
     const next = storeReducer(
       { ...emptyStore, todos: [withSubs] },
       { type: 'toggle', id: 'r', now: '2026-08-17T10:00:00.000Z', nextId: 'r2', today: '2026-08-17' },
     )
-    expect(next.todos[1].subtasks).toEqual([{ id: 's1', title: '下書き', done: false }])
+    expect(next.todos[1].dueDate).toBe('2026-08-24')
+    expect(next.todos[1].subtasks.map((s) => s.dueDate)).toEqual(['2026-08-21', null])
+  })
+
+  it('次回ぶんはサブタスクのチェックを戻して引き継ぐ', () => {
+    const withSubs = {
+      ...base,
+      subtasks: [{ id: 's1', title: '下書き', done: true, dueDate: null }],
+    }
+    const next = storeReducer(
+      { ...emptyStore, todos: [withSubs] },
+      { type: 'toggle', id: 'r', now: '2026-08-17T10:00:00.000Z', nextId: 'r2', today: '2026-08-17' },
+    )
+    expect(next.todos[1].subtasks).toEqual([
+      { id: 's1', title: '下書き', done: false, dueDate: null },
+    ])
   })
 })
 

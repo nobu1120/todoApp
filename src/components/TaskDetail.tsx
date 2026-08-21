@@ -35,6 +35,7 @@ type Props = {
   onAddSubtask: (title: string) => void
   onToggleSubtask: (subtaskId: string) => void
   onRenameSubtask: (subtaskId: string, title: string) => void
+  onSetSubtaskDue: (subtaskId: string, dueDate: string | null) => void
   onRemoveSubtask: (subtaskId: string) => void
   onRemove: () => void
   onToggle: () => void
@@ -48,6 +49,7 @@ export function TaskDetail({
   onAddSubtask,
   onToggleSubtask,
   onRenameSubtask,
+  onSetSubtaskDue,
   onRemoveSubtask,
   onRemove,
   onToggle,
@@ -263,7 +265,9 @@ export function TaskDetail({
           onAdd={onAddSubtask}
           onToggle={onToggleSubtask}
           onRename={onRenameSubtask}
+          onSetDue={onSetSubtaskDue}
           onRemove={onRemoveSubtask}
+          parentDue={todo.dueDate}
         />
       </section>
 

@@ -49,7 +49,7 @@ const REMOTE_REPEATS: Repeat[] = [
 import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { ARCHIVE_DAYS, CURRENT_VERSION } from './storage'
 import { isThemeId } from './themes'
-import { HM_RE } from './date'
+import { HM_RE, ISO_DATE_RE } from './date'
 import type { CategoryColor } from '../types'
 
 /**
@@ -232,7 +232,17 @@ export function fromRemoteTodo(row: RemoteTodo): Todo {
         if (typeof s !== 'object' || s === null) return []
         const raw = s as Record<string, unknown>
         if (typeof raw.id !== 'string' || typeof raw.title !== 'string') return []
-        return [{ id: raw.id, title: raw.title, done: raw.done === true }]
+        return [
+          {
+            id: raw.id,
+            title: raw.title,
+            done: raw.done === true,
+            // jsonb なので列は増やさずに済む。読めない値は落とす。
+            dueDate: typeof raw.dueDate === 'string' && ISO_DATE_RE.test(raw.dueDate)
+              ? raw.dueDate
+              : null,
+          },
+        ]
       })
     : []
 

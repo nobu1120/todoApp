@@ -7,10 +7,21 @@ type Props = {
   onAdd: (title: string) => void
   onToggle: (subtaskId: string) => void
   onRename: (subtaskId: string, title: string) => void
+  onSetDue: (subtaskId: string, dueDate: string | null) => void
   onRemove: (subtaskId: string) => void
+  /** 親の期限。サブタスクの日付欄の上限にする。 */
+  parentDue: string | null
 }
 
-export function SubtaskList({ subtasks, onAdd, onToggle, onRename, onRemove }: Props) {
+export function SubtaskList({
+  subtasks,
+  onAdd,
+  onToggle,
+  onRename,
+  onSetDue,
+  onRemove,
+  parentDue,
+}: Props) {
   const [draft, setDraft] = useState('')
 
   function handleAdd(event: FormEvent) {
@@ -39,6 +50,19 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onRename, onRemove }: P
               value={subtask.title}
               onChange={(e) => onRename(subtask.id, e.target.value)}
               aria-label="サブタスク名"
+            />
+            {/*
+              * 親より後の日付は選べないようにする。
+              * 「親の締切より後に片付ける下準備」は意味を成さないので、
+              * 入れられてから直させるより、そもそも選べないほうがいい。
+              */}
+            <input
+              className={`subtask__due${subtask.dueDate === null ? ' is-empty' : ''}`}
+              type="date"
+              value={subtask.dueDate ?? ''}
+              max={parentDue ?? undefined}
+              onChange={(e) => onSetDue(subtask.id, e.target.value === '' ? null : e.target.value)}
+              aria-label={`${subtask.title} の期限`}
             />
             <button
               type="button"

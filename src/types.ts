@@ -23,6 +23,12 @@ export type Subtask = {
   id: string
   title: string
   done: boolean
+  /**
+   * 'YYYY-MM-DD'（時刻は持たない）。
+   * 親より先に片付けたいものに付ける。通知は出さない——
+   * 1 つのタスクから何通も鳴ると、肝心の親の期限が埋もれる。
+   */
+  dueDate: string | null
 }
 
 /** カテゴリの色。実際の色値は index.css の --cat-* トークンで定義する。 */
@@ -154,7 +160,7 @@ export type Shopping = {
 }
 
 export type TodoStore = {
-  schemaVersion: 10
+  schemaVersion: 11
   todos: Todo[]
   categories: Category[]
   settings: Settings

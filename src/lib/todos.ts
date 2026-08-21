@@ -211,13 +211,28 @@ export function repeatOf(todo: Todo, now: string, today: string, id: string): To
     notifiedAt: null,
     // どのタスクから作られたかを残す。完了を取り消したときに取り下げるため。
     spawnedFrom: todo.id,
-    // サブタスクは同じ内容で作り直す。チェックは戻す。
-    subtasks: todo.subtasks.map((s) => ({ ...s, done: false })),
+    /*
+     * サブタスクは同じ内容で作り直す。チェックは戻す。
+     * 期限は親が動いたぶんだけ一緒にずらす——「本番の 3 日前」のような
+     * 前後関係が、次回ぶんでも同じ間隔で保たれるように。
+     */
+    subtasks: todo.subtasks.map((s) => ({
+      ...s,
+      done: false,
+      dueDate:
+        s.dueDate === null || todo.dueDate === null
+          ? s.dueDate
+          : addDays(s.dueDate, diffInDays(due, todo.dueDate)),
+    })),
   }
 }
 
-export function createSubtask(title: string, id: string = newId()): Subtask {
-  return { id, title: title.trim(), done: false }
+export function createSubtask(
+  title: string,
+  id: string = newId(),
+  dueDate: string | null = null,
+): Subtask {
+  return { id, title: title.trim(), done: false, dueDate }
 }
 
 // --- reducer -----------------------------------------------------------------
@@ -247,6 +262,13 @@ export type Action =
   | { type: 'subtask:add'; id: string; subtask: Subtask; now: string }
   | { type: 'subtask:toggle'; id: string; subtaskId: string; now: string }
   | { type: 'subtask:rename'; id: string; subtaskId: string; title: string; now: string }
+  | {
+      type: 'subtask:due'
+      id: string
+      subtaskId: string
+      dueDate: string | null
+      now: string
+    }
   | { type: 'subtask:remove'; id: string; subtaskId: string; now: string }
   | { type: 'category:add'; category: Category }
   | {
@@ -480,6 +502,12 @@ export function storeReducer(store: TodoStore, action: Action): TodoStore {
       return mapSubtask(store, action.id, action.subtaskId, action.now, (s) => ({
         ...s,
         title: action.title.trim(),
+      }))
+
+    case 'subtask:due':
+      return mapSubtask(store, action.id, action.subtaskId, action.now, (s) => ({
+        ...s,
+        dueDate: action.dueDate,
       }))
 
     case 'subtask:remove':

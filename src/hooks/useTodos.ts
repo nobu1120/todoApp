@@ -114,6 +114,8 @@ export function useTodos() {
         dispatch({ type: 'subtask:toggle', id, subtaskId, now: now() }),
       renameSubtask: (id: string, subtaskId: string, title: string) =>
         dispatch({ type: 'subtask:rename', id, subtaskId, title, now: now() }),
+      setSubtaskDue: (id: string, subtaskId: string, dueDate: string | null) =>
+        dispatch({ type: 'subtask:due', id, subtaskId, dueDate, now: now() }),
       removeSubtask: (id: string, subtaskId: string) =>
         dispatch({ type: 'subtask:remove', id, subtaskId, now: now() }),
 

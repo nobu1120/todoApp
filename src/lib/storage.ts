@@ -18,7 +18,7 @@ import { COLOR_KEYS, DEFAULT_CATEGORIES } from './categories'
 import { DEFAULT_APPEARANCE, DEFAULT_THEME, isAppearance, isThemeId } from './themes'
 
 export const STORAGE_KEY = 'todoApp.store'
-export const CURRENT_VERSION = 10
+export const CURRENT_VERSION = 11
 
 /** 買い物リストの上限。1 回の買い物で扱う量を超えたら、それは別の道具の仕事。 */
 export const SHOPPING_MAX = 60
@@ -99,7 +99,13 @@ function parseSubtask(value: unknown): Subtask | null {
   const raw = value as Record<string, unknown>
   if (typeof raw.id !== 'string' || raw.id === '') return null
   if (typeof raw.title !== 'string') return null
-  return { id: raw.id, title: raw.title, done: raw.done === true }
+  return {
+    id: raw.id,
+    title: raw.title,
+    done: raw.done === true,
+    dueDate:
+      typeof raw.dueDate === 'string' && ISO_DATE_RE.test(raw.dueDate) ? raw.dueDate : null,
+  }
 }
 
 /**

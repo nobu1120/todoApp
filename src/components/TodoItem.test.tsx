@@ -15,7 +15,7 @@ function task(overrides: Partial<Todo> = {}): Todo {
 
 function setup(todo: Todo, props: Partial<Parameters<typeof TodoItem>[0]> = {}) {
   const onToggleSubtask = vi.fn()
-  render(
+  const { container } = render(
     <TodoItem
       todo={todo}
       categories={[]}
@@ -28,7 +28,7 @@ function setup(todo: Todo, props: Partial<Parameters<typeof TodoItem>[0]> = {}) 
       {...props}
     />,
   )
-  return { onToggleSubtask }
+  return { onToggleSubtask, container }
 }
 
 describe('一覧の中のサブタスク', () => {
@@ -62,6 +62,31 @@ describe('一覧の中のサブタスク', () => {
   it('選択モードでは押せない（行のタップが「選ぶ」になるため）', () => {
     setup(task({ subtasks }), { selecting: true })
     expect((screen.getByLabelText('風呂 を完了にする') as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('サブタスクの期限を一覧にも出す', () => {
+    setup(task({ subtasks: [{ ...createSubtask('宿を取る'), dueDate: '2026-08-25' }] }))
+    expect(screen.getByText('8/25')).toBeTruthy()
+  })
+
+  it('期限を過ぎたサブタスクは、親の行と同じ強調にする', () => {
+    setup(task({ subtasks: [{ ...createSubtask('宿を取る'), dueDate: '2026-08-19' }] }))
+    const due = screen.getByText('8/19')
+    expect(due.className).toContain('todo-item__sub-due--overdue')
+  })
+
+  it('済んだサブタスクは期限切れでも強調しない', () => {
+    setup(
+      task({
+        subtasks: [{ ...createSubtask('宿を取る'), done: true, dueDate: '2026-08-19' }],
+      }),
+    )
+    expect(screen.getByText('8/19').className).not.toContain('--overdue')
+  })
+
+  it('期限のないサブタスクには日付を出さない', () => {
+    const { container } = setup(task({ subtasks: [createSubtask('宿を取る')] }))
+    expect(container.querySelector('.todo-item__sub-due')).toBeNull()
   })
 
   it('サブタスクが無ければ畳むボタンも出さない', () => {

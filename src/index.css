@@ -1714,6 +1714,25 @@ body:has(.app--calendar) {
   opacity: 0.65;
 }
 
+.todo-item__sub-due {
+  flex: none;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 期限切れは親の行と同じ塗りにする。ここだけ静かにすると見落とす。
+ * 色はテーマごとの --alert-* に任せる（テーマ 10 種すべてで成り立つ組み）。
+ */
+.todo-item__sub-due--overdue {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--alert-bg);
+  color: var(--alert-fg);
+  font-weight: 700;
+}
+
 /* --- 進捗。ここも蛍光を使う --- */
 
 .progress {
@@ -2045,6 +2064,25 @@ body:has(.app--calendar) {
   color: var(--text-muted);
   text-decoration: line-through;
 }
+
+/*
+ * 日付が入っていない欄は淡くする。
+ * type="date" は空でも 'yyyy/mm/dd' の枠を出すので、
+ * 同じ濃さだと「全部に期限が付いている」ように読めてしまう。
+ */
+.subtask__due {
+  flex: none;
+  width: auto;
+  padding: 4px 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-color: transparent;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.subtask__due.is-empty { opacity: 0.45; }
+.subtask__due:focus { opacity: 1; }
 
 .subtask__remove {
   width: 38px;

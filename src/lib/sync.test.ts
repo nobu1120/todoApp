@@ -67,7 +67,7 @@ describe('往復変換', () => {
       icon: '📄',
       categoryId: 'cat-work',
       notes: 'メモ',
-      subtasks: [{ id: 's1', title: '明細', done: true }],
+      subtasks: [{ id: 's1', title: '明細', done: true, dueDate: null }],
       done: true,
       completedAt: '2026-08-19T00:00:00.000Z',
       notifiedAt: '2026-08-18T00:00:00.000Z',
@@ -83,7 +83,7 @@ describe('往復変換', () => {
     const parsed = fromRemoteTodo(
       remote({ id: 'a', subtasks: [{ id: 's1', title: 'ok', done: true }, null, { title: 'id なし' }] }),
     )
-    expect(parsed.subtasks).toEqual([{ id: 's1', title: 'ok', done: true }])
+    expect(parsed.subtasks).toEqual([{ id: 's1', title: 'ok', done: true, dueDate: null }])
   })
 
   it('知らない優先度は normal に落とす', () => {

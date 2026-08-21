@@ -208,6 +208,18 @@ export const TodoItem = memo(function TodoItem({
               <span className={`todo-item__sub-title${subtask.done ? ' is-done' : ''}`}>
                 {subtask.title}
               </span>
+              {subtask.dueDate !== null && (
+                <span
+                  className={
+                    'todo-item__sub-due' +
+                    (!subtask.done && isOverdue(subtask.dueDate, today)
+                      ? ' todo-item__sub-due--overdue'
+                      : '')
+                  }
+                >
+                  {formatDueLabel(subtask.dueDate, today)}
+                </span>
+              )}
             </li>
           ))}
         </ul>

@@ -464,6 +464,7 @@ export default function App() {
             onAddSubtask={(title) => todo.addSubtask(openTodo.id, title)}
             onToggleSubtask={(sid) => todo.toggleSubtask(openTodo.id, sid)}
             onRenameSubtask={(sid, title) => todo.renameSubtask(openTodo.id, sid, title)}
+            onSetSubtaskDue={(sid, due) => todo.setSubtaskDue(openTodo.id, sid, due)}
             onRemoveSubtask={(sid) => todo.removeSubtask(openTodo.id, sid)}
             onToggle={() => todo.toggle(openTodo.id)}
             today={today}
