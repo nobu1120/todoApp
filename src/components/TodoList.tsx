@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import type { Category, Todo } from '../types'
 import { TodoItem } from './TodoItem'
 import { useLongPressDrag } from '../hooks/useLongPressDrag'
@@ -10,6 +11,8 @@ type Props = {
   selecting?: boolean
   selectedIds?: Set<string>
   onToggle: (id: string) => void
+  /** 渡すと、一覧の中でサブタスクを直接チェックできる。 */
+  onToggleSubtask?: (id: string, subtaskId: string) => void
   onOpen: (id: string) => void
   onRemove: (id: string) => void
   onSelect?: (id: string) => void
@@ -26,12 +29,29 @@ export function TodoList({
   selecting = false,
   selectedIds,
   onToggle,
+  onToggleSubtask,
   onOpen,
   onRemove,
   onSelect,
   onReorder,
   onHold,
 }: Props) {
+  /*
+   * 畳んでいるタスクの id。既定は開いた状態なので、持つのは「畳んだほう」。
+   *
+   * ストアには入れない。どこまで開いているかは今この画面での都合で、
+   * 端末をまたいで揃える意味がないため（同期の対象を増やしたくない）。
+   */
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+
+  const toggleCollapsed = useCallback((id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }, [])
+
   const press = useLongPressDrag({
     onDrop: (id, before) => onReorder?.(id, before),
     onHold: (id) => onHold?.(id),
@@ -56,8 +76,11 @@ export function TodoList({
           selected={selectedIds?.has(todo.id) ?? false}
           held={press.drag.id === todo.id}
           dropBefore={press.drag.id !== null && press.drag.before === todo.id}
+          collapsed={collapsed.has(todo.id)}
           onPressStart={press.onPointerDown}
           onToggle={onToggle}
+          onToggleSubtask={onToggleSubtask}
+          onToggleCollapsed={toggleCollapsed}
           onOpen={onOpen}
           onRemove={onRemove}
           onSelect={onSelect}

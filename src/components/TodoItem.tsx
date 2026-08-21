@@ -15,8 +15,13 @@ type Props = {
   held?: boolean
   /** この行の直前に落とす。区切り線を出す。 */
   dropBefore?: boolean
+  /** サブタスクを畳んでいる。 */
+  collapsed?: boolean
   onPressStart?: (id: string, clientY: number) => void
   onToggle: (id: string) => void
+  /** 渡すと、一覧の中でサブタスクを直接チェックできる。 */
+  onToggleSubtask?: (id: string, subtaskId: string) => void
+  onToggleCollapsed?: (id: string) => void
   onOpen: (id: string) => void
   onRemove: (id: string) => void
   onSelect?: (id: string) => void
@@ -35,8 +40,11 @@ export const TodoItem = memo(function TodoItem({
   selected = false,
   held = false,
   dropBefore = false,
+  collapsed = false,
   onPressStart,
   onToggle,
+  onToggleSubtask,
+  onToggleCollapsed,
   onOpen,
   onRemove,
   onSelect,
@@ -47,6 +55,12 @@ export const TodoItem = memo(function TodoItem({
   // まだ着手日が来ていないもの。「すべて」に出るので、見分けが付くようにする。
   const waiting = !todo.done && isWaiting(todo, today)
   const dueToday = !todo.done && isToday(todo.dueDate, today)
+
+  /*
+   * サブタスクを一覧にも出す。詳細を開かずに片付けられるようにするため。
+   * 完了した親の下では出さない——中身はもう済んだ話で、行数だけ増える。
+   */
+  const showSubtasks = onToggleSubtask !== undefined && !todo.done && todo.subtasks.length > 0
 
   // メタ行は、出すものがあるときだけ描画する（空行で高さが揺れないように）。
   const hasMeta =
@@ -155,6 +169,18 @@ export const TodoItem = memo(function TodoItem({
         </span>
       )}
 
+      {showSubtasks && onToggleCollapsed !== undefined && (
+        <button
+          type="button"
+          className={`icon-button todo-item__fold${collapsed ? '' : ' is-open'}`}
+          onClick={() => onToggleCollapsed(todo.id)}
+          aria-expanded={!collapsed}
+          aria-label={`${todo.title} のサブタスクを${collapsed ? '開く' : '畳む'}`}
+        >
+          <Icon name="chevron" />
+        </button>
+      )}
+
       <button
         type="button"
         className="icon-button todo-item__remove"
@@ -163,6 +189,29 @@ export const TodoItem = memo(function TodoItem({
       >
         <Icon name="close" />
       </button>
+
+      {showSubtasks && !collapsed && (
+        <ul className="todo-item__subs">
+          {todo.subtasks.map((subtask) => (
+            <li key={subtask.id} className="todo-item__sub">
+              <label className="todo-item__sub-check">
+                <input
+                  className="check check--sm"
+                  type="checkbox"
+                  checked={subtask.done}
+                  /* 選択モードでは行のタップが「選ぶ」になる。紛れて押さないよう止める。 */
+                  disabled={selecting}
+                  onChange={() => onToggleSubtask?.(todo.id, subtask.id)}
+                  aria-label={`${subtask.title} を${subtask.done ? '未完了に戻す' : '完了にする'}`}
+                />
+              </label>
+              <span className={`todo-item__sub-title${subtask.done ? ' is-done' : ''}`}>
+                {subtask.title}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </li>
   )
 })

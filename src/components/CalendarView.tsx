@@ -22,6 +22,7 @@ type Props = {
   onSelect: (date: string) => void
   onAdd: (input: NewTodoInput) => void
   onToggle: (id: string) => void
+  onToggleSubtask?: (id: string, subtaskId: string) => void
   onOpen: (id: string) => void
   onRemove: (id: string) => void
 }
@@ -37,6 +38,7 @@ export function CalendarView({
   onSelect,
   onAdd,
   onToggle,
+  onToggleSubtask,
   onOpen,
   onRemove,
 }: Props) {
@@ -84,6 +86,7 @@ export function CalendarView({
                   categories={categories}
                   today={today}
                   onToggle={onToggle}
+                  onToggleSubtask={onToggleSubtask}
                   onOpen={onOpen}
                   onRemove={onRemove}
                 />
@@ -101,6 +104,7 @@ export function CalendarView({
                     categories={categories}
                     today={today}
                     onToggle={onToggle}
+                    onToggleSubtask={onToggleSubtask}
                     onOpen={onOpen}
                     onRemove={onRemove}
                   />

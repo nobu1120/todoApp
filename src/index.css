@@ -1652,6 +1652,68 @@ body:has(.app--calendar) {
   .todo-item__remove { display: none; }
 }
 
+/* --- 一覧の中のサブタスク --- */
+
+/*
+ * サブタスクは親の行の下へ回り込ませる。
+ *
+ * .todo-item は 1 行の flex なので、幅いっぱいの子を最後に置いて折り返す。
+ * 入れ子の div で組み直すより、上の段（チェック・本文・期限）の見た目を
+ * まったく動かさずに済む。
+ */
+.todo-item { flex-wrap: wrap; }
+
+/*
+ * 畳むボタンは常に出す。削除ボタンと違ってタッチでも要る——
+ * ここを隠すと、サブタスクを畳む手立てが指では無くなる。
+ */
+.todo-item__fold {
+  align-self: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
+}
+
+.todo-item__fold svg { transition: transform 0.18s ease; }
+.todo-item__fold.is-open svg { transform: rotate(180deg); }
+
+.todo-item__subs {
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  /* 親のチェックボックス（44px）ぶん下げて、本文の行頭に揃える。 */
+  padding: 0 4px 8px 44px;
+}
+
+.todo-item__sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.todo-item__sub-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 36px;
+  cursor: pointer;
+}
+
+.todo-item__sub-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.todo-item__sub-title.is-done {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
 /* --- 進捗。ここも蛍光を使う --- */
 
 .progress {

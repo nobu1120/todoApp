@@ -315,6 +315,7 @@ export default function App() {
           onSelect={selectDate}
           onAdd={todo.add}
           onToggle={todo.toggle}
+          onToggleSubtask={todo.toggleSubtask}
           onOpen={setOpenId}
           onRemove={todo.remove}
         />
@@ -405,6 +406,7 @@ export default function App() {
           selecting={selecting}
           selectedIds={selectedIds}
           onToggle={todo.toggle}
+          onToggleSubtask={todo.toggleSubtask}
           onOpen={setOpenId}
           onRemove={todo.remove}
           onSelect={toggleSelected}
